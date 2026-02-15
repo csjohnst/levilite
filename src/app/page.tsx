@@ -37,7 +37,7 @@ export default function Home() {
           <div className="mt-12">
             <Image 
               src="/dashboard.png" 
-              alt="LeviLite Dashboard" 
+              alt="LevyLite Dashboard" 
               width={1200} 
               height={675}
               className="rounded-lg shadow-2xl"
@@ -127,7 +127,7 @@ export default function Home() {
       <section className="py-20 px-4">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-4xl font-bold text-center mb-12 text-[#3A3A3A]">
-            How does LeviLite compare?
+            How does LevyLite compare?
           </h2>
           <div className="overflow-x-auto">
             <table className="w-full bg-white rounded-lg shadow-lg">
@@ -136,7 +136,7 @@ export default function Home() {
                   <th className="p-4 text-left">Feature</th>
                   <th className="p-4 text-center">Spreadsheets</th>
                   <th className="p-4 text-center">Enterprise Software</th>
-                  <th className="p-4 text-center bg-[#0090B7]">LeviLite</th>
+                  <th className="p-4 text-center bg-[#0090B7]">LevyLite</th>
                 </tr>
               </thead>
               <tbody className="text-[#3A3A3A]">
@@ -252,7 +252,7 @@ export default function Home() {
             </div>
           </div>
           <div className="text-center mt-6 text-white/60 text-sm">
-            levilite.com.au
+            levylite.com.au
           </div>
         </div>
       </footer>
