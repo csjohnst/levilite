@@ -1,7 +1,6 @@
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { SignupForm } from "@/components/signup-form";
 import { 
   DollarSign, 
   Calendar, 
@@ -34,16 +33,7 @@ export default function Home() {
           <p className="text-xl md:text-2xl mb-8 text-white/90">
             Built for small operators. $6/lot/month. No minimums. No sales calls.
           </p>
-          <div className="max-w-md mx-auto flex gap-2">
-            <Input 
-              type="email" 
-              placeholder="Enter your email" 
-              className="bg-white text-[#3A3A3A]"
-            />
-            <Button className="bg-white text-[#02667F] hover:bg-white/90">
-              Get early access
-            </Button>
-          </div>
+          <SignupForm buttonText="Get early access" dark={true} />
           <div className="mt-12">
             <Image 
               src="/dashboard.png" 
@@ -236,16 +226,7 @@ export default function Home() {
           <p className="text-xl mb-8 text-white/90">
             Join 10 founding customers. Free for 6 months. Help shape the product.
           </p>
-          <div className="max-w-md mx-auto flex gap-2">
-            <Input 
-              type="email" 
-              placeholder="Enter your email" 
-              className="bg-white text-[#3A3A3A]"
-            />
-            <Button className="bg-white text-[#02667F] hover:bg-white/90">
-              Join the beta
-            </Button>
-          </div>
+          <SignupForm buttonText="Join the beta" dark={true} />
         </div>
       </section>
 
