@@ -144,7 +144,7 @@ export default function Home() {
                   <td className="p-4 font-medium">Cost (50 lots)</td>
                   <td className="p-4 text-center">$0</td>
                   <td className="p-4 text-center">$10K+/year</td>
-                  <td className="p-4 text-center font-bold text-[#02667F]">$400/month</td>
+                  <td className="p-4 text-center font-bold text-[#02667F]">From $48/month</td>
                 </tr>
                 <tr className="border-b bg-[#F6F8FA]">
                   <td className="p-4 font-medium">Setup time</td>
@@ -183,37 +183,64 @@ export default function Home() {
             Simple, honest pricing
           </h2>
           <p className="text-center text-xl text-[#3A3A3A]/80 mb-12">
-            All plans include unlimited users, unlimited storage, all features
+            Start free. Upgrade when you&apos;re ready. No lock-in.
           </p>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             <Card className="p-6 border-2 border-[#02667F]/20">
               <h3 className="text-2xl font-bold mb-2 text-[#3A3A3A]">Free</h3>
-              <p className="text-[#3A3A3A]/80 mb-4">≤10 lots</p>
+              <p className="text-[#3A3A3A]/80 mb-4">Up to 5 lots, 1 scheme</p>
               <p className="text-4xl font-bold text-[#02667F] mb-4">$0</p>
-              <p className="text-sm text-[#3A3A3A]/60">Perfect for starting out</p>
+              <ul className="text-sm text-[#3A3A3A]/70 space-y-1 mb-4">
+                <li className="flex items-center gap-1"><Check className="w-4 h-4 text-green-500 flex-shrink-0" /> 14-day trial of all features</li>
+                <li className="flex items-center gap-1"><Check className="w-4 h-4 text-green-500 flex-shrink-0" /> Scheme &amp; lot register</li>
+                <li className="flex items-center gap-1"><Check className="w-4 h-4 text-green-500 flex-shrink-0" /> Levy management</li>
+                <li className="flex items-center gap-1"><Check className="w-4 h-4 text-green-500 flex-shrink-0" /> Owner portal</li>
+                <li className="flex items-center gap-1"><Check className="w-4 h-4 text-green-500 flex-shrink-0" /> Document storage</li>
+                <li className="flex items-center gap-1"><Check className="w-4 h-4 text-green-500 flex-shrink-0" /> Meeting admin</li>
+              </ul>
+              <p className="text-xs text-[#3A3A3A]/50">Perfect for self-managed schemes</p>
             </Card>
             <Card className="p-6 border-2 border-[#02667F]/20">
               <h3 className="text-2xl font-bold mb-2 text-[#3A3A3A]">Starter</h3>
-              <p className="text-[#3A3A3A]/80 mb-4">11-50 lots</p>
+              <p className="text-[#3A3A3A]/80 mb-4">6–50 lots</p>
               <p className="text-4xl font-bold text-[#02667F] mb-4">$8<span className="text-lg">/lot/month</span></p>
-              <p className="text-sm text-[#3A3A3A]/60">Most small operators</p>
+              <ul className="text-sm text-[#3A3A3A]/70 space-y-1 mb-4">
+                <li className="flex items-center gap-1"><Check className="w-4 h-4 text-green-500 flex-shrink-0" /> Everything in Free</li>
+                <li className="flex items-center gap-1"><Check className="w-4 h-4 text-green-500 flex-shrink-0" /> Trust accounting</li>
+                <li className="flex items-center gap-1"><Check className="w-4 h-4 text-green-500 flex-shrink-0" /> Bulk levy notices</li>
+                <li className="flex items-center gap-1"><Check className="w-4 h-4 text-green-500 flex-shrink-0" /> Financial reporting</li>
+                <li className="flex items-center gap-1"><Check className="w-4 h-4 text-green-500 flex-shrink-0" /> CSV import/export</li>
+                <li className="flex items-center gap-1"><Check className="w-4 h-4 text-green-500 flex-shrink-0" /> Unlimited schemes</li>
+              </ul>
+              <p className="text-xs text-[#3A3A3A]/50">Most small operators</p>
             </Card>
             <Card className="p-6 border-2 border-[#0090B7] shadow-lg">
               <div className="bg-[#0090B7] text-white text-xs font-bold px-2 py-1 rounded inline-block mb-2">
                 MOST POPULAR
               </div>
               <h3 className="text-2xl font-bold mb-2 text-[#3A3A3A]">Professional</h3>
-              <p className="text-[#3A3A3A]/80 mb-4">51-200 lots</p>
+              <p className="text-[#3A3A3A]/80 mb-4">51–200 lots</p>
               <p className="text-4xl font-bold text-[#02667F] mb-4">$6<span className="text-lg">/lot/month</span></p>
-              <p className="text-sm text-[#3A3A3A]/60">Growing portfolios</p>
+              <ul className="text-sm text-[#3A3A3A]/70 space-y-1 mb-4">
+                <li className="flex items-center gap-1"><Check className="w-4 h-4 text-green-500 flex-shrink-0" /> Everything in Starter</li>
+                <li className="flex items-center gap-1"><Check className="w-4 h-4 text-green-500 flex-shrink-0" /> Priority support</li>
+              </ul>
+              <p className="text-xs text-[#3A3A3A]/50">Growing portfolios</p>
             </Card>
             <Card className="p-6 border-2 border-[#02667F]/20">
               <h3 className="text-2xl font-bold mb-2 text-[#3A3A3A]">Growth</h3>
-              <p className="text-[#3A3A3A]/80 mb-4">201-500 lots</p>
+              <p className="text-[#3A3A3A]/80 mb-4">201–500 lots</p>
               <p className="text-4xl font-bold text-[#02667F] mb-4">$5<span className="text-lg">/lot/month</span></p>
-              <p className="text-sm text-[#3A3A3A]/60">Established operators</p>
+              <ul className="text-sm text-[#3A3A3A]/70 space-y-1 mb-4">
+                <li className="flex items-center gap-1"><Check className="w-4 h-4 text-green-500 flex-shrink-0" /> Everything in Professional</li>
+                <li className="flex items-center gap-1"><Check className="w-4 h-4 text-green-500 flex-shrink-0" /> Volume discount</li>
+              </ul>
+              <p className="text-xs text-[#3A3A3A]/50">Established operators</p>
             </Card>
           </div>
+          <p className="text-center text-sm text-[#3A3A3A]/60 mt-8">
+            All paid plans include unlimited users, unlimited storage, and all features. Save 2 months with annual billing.
+          </p>
         </div>
       </section>
 
