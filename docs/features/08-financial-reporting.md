@@ -1,0 +1,1250 @@
+# Feature Specification: Financial Reporting
+**LevyLite Strata Management Platform**
+
+**Feature ID:** 08  
+**Version:** 1.0  
+**Date:** 16 February 2026  
+**Author:** Kai (AI Agent)  
+**Status:** Draft for Review
+
+---
+
+## 1. Overview
+
+Financial reporting is the backbone of strata management compliance and transparency. This feature provides strata managers with comprehensive reporting capabilities covering levy management, fund balances, budget tracking, and end-of-financial-year (EOFY) reporting. All reports must be WA Strata Titles Act compliant, auditor-ready, and accessible to both managers and scheme committees.
+
+### 1.1 Objectives
+
+- **Compliance:** Meet WA Strata Titles Act requirements for financial record-keeping and annual reporting
+- **Transparency:** Enable committees and owners to understand fund positions, levy collection, and budget performance
+- **Time Savings:** Reduce manual Excel export/manipulation by 8-10 hours per scheme per year
+- **Audit-Ready:** Produce reports suitable for accountant review and Consumer Protection audits
+- **Self-Service:** Allow managers to generate reports on-demand without technical expertise
+
+### 1.2 Success Metrics
+
+- **Adoption:** 80%+ of managers generate at least one report per scheme per quarter
+- **Time Savings:** Average report generation time <2 minutes (vs. 20-30 minutes in Excel)
+- **Accuracy:** Zero reported accounting discrepancies in beta testing
+- **Export Rate:** 60%+ of reports exported to PDF for committee/owner distribution
+- **EOFY Usage:** 100% of managers use EOFY report for annual AGM preparation
+
+---
+
+## 2. Report Types (Detailed Specifications)
+
+### 2.1 Levy Roll Report
+
+**Purpose:** Comprehensive view of levy obligations, payments, and arrears for all lots in a scheme.
+
+#### 2.1.1 Scope
+- Display all lots with entitlement, levy amounts, payments, and outstanding balances
+- Support filtering by fund type (admin, capital works, or combined)
+- Highlight arrears (>30 days overdue in red, >60 days in bold red)
+- Summary totals: total levies raised, total payments received, total arrears
+
+#### 2.1.2 Data Elements (Per Lot)
+| Column | Description | Source |
+|--------|-------------|--------|
+| Lot Number | Unit/lot identifier | `lots.lot_number` |
+| Unit Address | Physical address (if different from scheme address) | `lots.address` |
+| Owner Name | Current registered owner | `lots.owner_name` |
+| Entitlement | Unit entitlement (share of levies) | `lots.entitlement` |
+| Admin Levy | Admin fund levy amount for period | Calculated from `levy_schedules` |
+| CW Levy | Capital works levy amount for period | Calculated from `levy_schedules` |
+| Total Levy | Admin + CW | Calculated |
+| Payments | Total payments received in period | Sum from `transactions WHERE type='receipt'` |
+| Balance | Outstanding amount (levy - payments) | Calculated |
+| Status | Current/Overdue/Arrears >60d | Calculated based on due date |
+
+#### 2.1.3 SQL Query (Simplified)
+```sql
+WITH levy_period AS (
+  SELECT 
+    l.id AS lot_id,
+    l.lot_number,
+    l.address,
+    l.owner_name,
+    l.entitlement,
+    ls.admin_amount,
+    ls.capital_works_amount,
+    ls.due_date,
+    (ls.admin_amount + ls.capital_works_amount) AS total_levy
+  FROM lots l
+  JOIN levy_schedules ls ON l.id = ls.lot_id
+  WHERE ls.scheme_id = $scheme_id
+    AND ls.period_start >= $report_start_date
+    AND ls.period_end <= $report_end_date
+),
+payments AS (
+  SELECT 
+    lot_id,
+    SUM(amount) AS total_paid
+  FROM transactions
+  WHERE scheme_id = $scheme_id
+    AND type = 'receipt'
+    AND category = 'levy_payment'
+    AND date >= $report_start_date
+    AND date <= $report_end_date
+  GROUP BY lot_id
+)
+SELECT 
+  lp.*,
+  COALESCE(p.total_paid, 0) AS payments,
+  (lp.total_levy - COALESCE(p.total_paid, 0)) AS balance,
+  CASE 
+    WHEN lp.due_date >= CURRENT_DATE THEN 'Current'
+    WHEN lp.due_date >= CURRENT_DATE - INTERVAL '30 days' THEN 'Overdue'
+    WHEN lp.due_date >= CURRENT_DATE - INTERVAL '60 days' THEN 'Arrears'
+    ELSE 'Arrears >60d'
+  END AS status
+FROM levy_period lp
+LEFT JOIN payments p ON lp.lot_id = p.lot_id
+ORDER BY lp.lot_number;
+```
+
+#### 2.1.4 UI Specifications
+- **Layout:** Table view with sticky header, sortable columns
+- **Filters:** 
+  - Date range selector (current quarter, current FY, custom range)
+  - Fund type toggle (admin only, CW only, combined)
+  - Status filter (all, current, overdue, arrears)
+- **Highlighting:** 
+  - Red text for arrears >30 days
+  - Bold red + warning icon for arrears >60 days
+- **Actions:**
+  - Export to PDF button (top right)
+  - Email to committee button
+  - Drill-down: click lot number → lot detail page with full payment history
+
+#### 2.1.5 PDF Template
+- **Header:** Scheme name, address, ABN, report period
+- **Table:** Same columns as screen view, paginated if >25 lots
+- **Footer:** Summary totals box (total levies, total payments, total arrears)
+- **Branding:** Scheme letterhead (logo uploaded in scheme settings)
+- **Watermark (optional):** "Generated by LevyLite on [date]" in footer
+
+---
+
+### 2.2 Fund Balance Report
+
+**Purpose:** Real-time snapshot of admin and capital works fund balances with transaction summary and projections.
+
+#### 2.2.1 Scope
+- Current balance for admin fund and capital works fund
+- Transaction breakdown (receipts vs. payments) for selected period
+- Projected balance based on upcoming levies and known future expenses
+
+#### 2.2.2 Data Elements
+| Section | Data Points |
+|---------|-------------|
+| **Current Balances** | Admin fund balance, CW fund balance, total |
+| **Transaction Summary (Period)** | Opening balance, total receipts, total payments, closing balance (per fund) |
+| **Receipts Breakdown** | Levy payments, interest, other income (categorized) |
+| **Payments Breakdown** | Maintenance, insurance, admin, utilities, other (categorized) |
+| **Projected Balance (Next Quarter)** | Current balance + expected levies - known upcoming expenses |
+
+#### 2.2.3 SQL Query (Fund Balances)
+```sql
+-- Current balances (all-time)
+WITH admin_balance AS (
+  SELECT 
+    COALESCE(SUM(CASE WHEN type = 'receipt' THEN amount ELSE -amount END), 0) AS balance
+  FROM transactions
+  WHERE scheme_id = $scheme_id
+    AND fund = 'admin'
+),
+cw_balance AS (
+  SELECT 
+    COALESCE(SUM(CASE WHEN type = 'receipt' THEN amount ELSE -amount END), 0) AS balance
+  FROM transactions
+  WHERE scheme_id = $scheme_id
+    AND fund = 'capital_works'
+)
+SELECT 
+  ab.balance AS admin_balance,
+  cb.balance AS cw_balance,
+  (ab.balance + cb.balance) AS total_balance
+FROM admin_balance ab, cw_balance cb;
+
+-- Period transaction summary (for selected date range)
+SELECT 
+  fund,
+  type,
+  category,
+  SUM(amount) AS total_amount
+FROM transactions
+WHERE scheme_id = $scheme_id
+  AND date >= $report_start_date
+  AND date <= $report_end_date
+GROUP BY fund, type, category
+ORDER BY fund, type, category;
+```
+
+#### 2.2.4 Projected Balance Calculation
+```sql
+-- Expected levies (next quarter)
+WITH expected_levies AS (
+  SELECT 
+    fund,
+    SUM(amount) AS total_expected
+  FROM levy_schedules
+  WHERE scheme_id = $scheme_id
+    AND due_date >= $projection_start_date
+    AND due_date <= $projection_end_date
+  GROUP BY fund
+),
+-- Known upcoming expenses (from approved maintenance requests or scheduled payments)
+upcoming_expenses AS (
+  SELECT 
+    fund,
+    SUM(estimated_amount) AS total_expenses
+  FROM maintenance_requests
+  WHERE scheme_id = $scheme_id
+    AND status IN ('approved', 'in_progress')
+    AND estimated_completion_date <= $projection_end_date
+  GROUP BY fund
+)
+SELECT 
+  cb.fund,
+  cb.current_balance,
+  COALESCE(el.total_expected, 0) AS expected_levies,
+  COALESCE(ue.total_expenses, 0) AS upcoming_expenses,
+  (cb.current_balance + COALESCE(el.total_expected, 0) - COALESCE(ue.total_expenses, 0)) AS projected_balance
+FROM current_balances cb
+LEFT JOIN expected_levies el ON cb.fund = el.fund
+LEFT JOIN upcoming_expenses ue ON cb.fund = ue.fund;
+```
+
+#### 2.2.5 UI Specifications
+- **Layout:** Card-based dashboard (2 large cards: Admin Fund, CW Fund)
+- **Admin Fund Card:**
+  - Current balance (large, bold)
+  - Transaction summary (receipts vs. payments for period, bar chart)
+  - Projected balance (next quarter, with +/- indicator)
+- **CW Fund Card:** Same structure
+- **Combined View Toggle:** Show total across both funds
+- **Date Range Selector:** Default to current FY, allow custom range
+- **Drill-Down:** Click "Receipts" or "Payments" → transaction ledger filtered by type
+
+#### 2.2.6 PDF Template
+- **Page 1:** Summary (current balances, period totals)
+- **Page 2:** Transaction breakdown (receipts by category, payments by category)
+- **Page 3:** Projected balance with assumptions listed (expected levies, upcoming expenses)
+- **Charts:** Pie chart for expense categories, bar chart for receipts vs. payments
+
+---
+
+### 2.3 Income Statement (Budget vs. Actual)
+
+**Purpose:** Compare actual income and expenses against the approved annual budget, highlighting variances.
+
+#### 2.3.1 Scope
+- Show budget vs. actual for all income and expense categories
+- Calculate variance (actual - budget) and variance %
+- Highlight over-budget categories (red) and under-budget (green)
+- Support multi-period views (month-to-date, quarter-to-date, year-to-date)
+
+#### 2.3.2 Data Elements
+| Column | Description |
+|--------|-------------|
+| Category | Chart of accounts category (e.g., Insurance, Maintenance, Utilities) |
+| Budget (Period) | Pro-rated budget for selected period |
+| Actual (Period) | Sum of transactions in category for period |
+| Variance | Actual - Budget |
+| Variance % | (Variance / Budget) × 100 |
+| Budget (YTD) | Year-to-date budget |
+| Actual (YTD) | Year-to-date actual |
+| Variance (YTD) | YTD Actual - YTD Budget |
+
+#### 2.3.3 SQL Query
+```sql
+-- Assumes budgets are stored per financial year with annual amounts
+WITH budget_data AS (
+  SELECT 
+    category,
+    annual_amount,
+    (annual_amount / 12 * $months_in_period) AS period_budget,
+    (annual_amount / 12 * $months_ytd) AS ytd_budget
+  FROM budgets
+  WHERE scheme_id = $scheme_id
+    AND financial_year = $selected_fy
+    AND fund = $selected_fund
+),
+actual_data AS (
+  SELECT 
+    category,
+    SUM(CASE WHEN date >= $period_start AND date <= $period_end THEN amount ELSE 0 END) AS period_actual,
+    SUM(CASE WHEN date >= $fy_start AND date <= $period_end THEN amount ELSE 0 END) AS ytd_actual
+  FROM transactions
+  WHERE scheme_id = $scheme_id
+    AND fund = $selected_fund
+    AND type = 'payment'
+  GROUP BY category
+)
+SELECT 
+  b.category,
+  b.period_budget,
+  COALESCE(a.period_actual, 0) AS period_actual,
+  (COALESCE(a.period_actual, 0) - b.period_budget) AS period_variance,
+  CASE 
+    WHEN b.period_budget = 0 THEN NULL
+    ELSE ((COALESCE(a.period_actual, 0) - b.period_budget) / b.period_budget * 100)
+  END AS period_variance_pct,
+  b.ytd_budget,
+  COALESCE(a.ytd_actual, 0) AS ytd_actual,
+  (COALESCE(a.ytd_actual, 0) - b.ytd_budget) AS ytd_variance
+FROM budget_data b
+LEFT JOIN actual_data a ON b.category = a.category
+ORDER BY b.category;
+```
+
+#### 2.3.4 UI Specifications
+- **Layout:** Table with color-coded variance columns
+- **Color Coding:**
+  - Variance <5%: Green (under budget)
+  - Variance 5-10%: Yellow (approaching budget)
+  - Variance >10%: Red (over budget)
+- **Filters:**
+  - Fund selector (admin, capital works)
+  - Period selector (this month, this quarter, YTD, custom range)
+- **Sorting:** Default sort by variance % (descending, show biggest over-budget first)
+- **Drill-Down:** Click category → transaction list for that category
+
+#### 2.3.5 Dashboard Widget
+- **Widget Name:** "Budget Health"
+- **Display:** 
+  - Overall variance % (YTD actual vs. YTD budget)
+  - Visual indicator: green checkmark if within 5%, yellow warning if 5-10%, red alert if >10%
+  - Top 3 over-budget categories with variance amounts
+- **Action:** Click widget → full budget vs. actual report
+
+---
+
+### 2.4 Trial Balance Report
+
+**Purpose:** Accounting snapshot showing all account balances for a specific point in time (used by accountants for reconciliation).
+
+#### 2.4.1 Scope
+- List all chart of accounts categories with debit/credit balances
+- Separate admin and capital works funds
+- Ensure debits = credits (accounting fundamental)
+- Export to CSV for accountant import into Xero/MYOB
+
+#### 2.4.2 Data Elements
+| Column | Description |
+|--------|-------------|
+| Account Code | Chart of accounts code (e.g., 4000-Levies, 6100-Insurance) |
+| Account Name | Category name |
+| Fund | Admin or Capital Works |
+| Debit | Sum of debit transactions (payments, assets) |
+| Credit | Sum of credit transactions (receipts, liabilities) |
+| Balance | Debit - Credit (or Credit - Debit depending on account type) |
+
+#### 2.4.3 SQL Query
+```sql
+SELECT 
+  coa.code AS account_code,
+  coa.name AS account_name,
+  coa.fund,
+  COALESCE(SUM(CASE WHEN t.type = 'payment' THEN t.amount ELSE 0 END), 0) AS debit,
+  COALESCE(SUM(CASE WHEN t.type = 'receipt' THEN t.amount ELSE 0 END), 0) AS credit,
+  (COALESCE(SUM(CASE WHEN t.type = 'receipt' THEN t.amount ELSE 0 END), 0) - 
+   COALESCE(SUM(CASE WHEN t.type = 'payment' THEN t.amount ELSE 0 END), 0)) AS balance
+FROM chart_of_accounts coa
+LEFT JOIN transactions t ON coa.id = t.category_id
+  AND t.scheme_id = $scheme_id
+  AND t.date <= $as_of_date
+WHERE coa.scheme_id = $scheme_id
+GROUP BY coa.code, coa.name, coa.fund
+ORDER BY coa.fund, coa.code;
+```
+
+#### 2.4.4 Validation Check
+```sql
+-- Ensure total debits = total credits
+SELECT 
+  SUM(debit) AS total_debit,
+  SUM(credit) AS total_credit,
+  (SUM(credit) - SUM(debit)) AS difference
+FROM (
+  -- Same query as above
+);
+-- If difference != 0, show error message: "Trial balance does not balance. Contact support."
+```
+
+#### 2.4.5 UI Specifications
+- **Layout:** Simple table, grouped by fund
+- **Footer:** Total debits, total credits, difference (should be $0.00)
+- **Export:** CSV, Excel, PDF
+- **Warning:** If balance difference != 0, show red alert banner at top
+
+---
+
+### 2.5 Bank Reconciliation Report
+
+**Purpose:** Match transactions in LevyLite against bank statement to ensure accuracy.
+
+#### 2.5.1 Scope (MVP)
+- Upload bank statement CSV
+- Auto-match transactions by date, amount, reference
+- Show unmatched transactions (need manual review)
+- Mark transactions as reconciled
+
+#### 2.5.2 Workflow
+1. Manager uploads bank statement CSV (supports common bank formats: CBA, Westpac, NAB, ANZ)
+2. System parses CSV and extracts: date, description, debit, credit, balance
+3. System attempts auto-match:
+   - Match by exact amount + date within ±3 days + reference (fuzzy match on description)
+4. Display results:
+   - **Matched (Green):** Transaction in LevyLite matches bank statement line
+   - **Unmatched in LevyLite (Yellow):** Bank statement line has no matching transaction → prompt manager to create transaction
+   - **Unmatched in Bank (Orange):** LevyLite transaction has no matching bank line → possible entry error
+5. Manager reviews unmatched items, creates missing transactions, or marks as resolved
+6. Once all items matched, mark period as "Reconciled" with date stamp
+
+#### 2.5.3 SQL Query (Matching Logic)
+```sql
+-- Find LevyLite transactions that match bank statement lines
+WITH bank_lines AS (
+  SELECT 
+    id,
+    date,
+    description,
+    amount,
+    type -- 'debit' or 'credit'
+  FROM bank_statement_uploads
+  WHERE scheme_id = $scheme_id
+    AND upload_id = $current_upload_id
+),
+levy_transactions AS (
+  SELECT 
+    id,
+    date,
+    description,
+    amount,
+    type -- 'receipt' or 'payment'
+  FROM transactions
+  WHERE scheme_id = $scheme_id
+    AND date >= $reconciliation_period_start
+    AND date <= $reconciliation_period_end
+    AND reconciled = false
+)
+SELECT 
+  bl.id AS bank_line_id,
+  lt.id AS transaction_id,
+  bl.date AS bank_date,
+  lt.date AS transaction_date,
+  bl.amount,
+  bl.description AS bank_description,
+  lt.description AS transaction_description,
+  CASE 
+    WHEN lt.id IS NOT NULL THEN 'Matched'
+    ELSE 'Unmatched in LevyLite'
+  END AS status
+FROM bank_lines bl
+LEFT JOIN levy_transactions lt ON 
+  bl.amount = lt.amount
+  AND ABS(EXTRACT(DAY FROM (bl.date - lt.date))) <= 3
+  AND (bl.type = 'credit' AND lt.type = 'receipt' OR bl.type = 'debit' AND lt.type = 'payment');
+```
+
+#### 2.5.4 UI Specifications
+- **Upload Interface:** Drag-and-drop CSV file, detect bank format
+- **Reconciliation Table:** 3-column view
+  - Left: Bank statement lines
+  - Middle: Match status (icon: checkmark, question mark, warning)
+  - Right: LevyLite transactions
+- **Actions:**
+  - "Create Transaction" button for unmatched bank lines
+  - "Mark as Resolved" for reconciled differences (e.g., bank fees)
+- **Progress Indicator:** "15 of 23 items matched (65%)"
+- **Completion:** Once 100% matched, "Mark Period as Reconciled" button appears
+
+---
+
+### 2.6 EOFY (End of Financial Year) Report
+
+**Purpose:** Comprehensive annual financial summary for AGM presentation and accountant review.
+
+#### 2.6.1 Scope
+- Income statement for full FY (all receipts and payments by category)
+- Fund balance carry-forward (closing balance becomes opening balance for next FY)
+- Levy collection summary (total levies raised, total collected, total arrears)
+- Auditor-ready format (WA Strata Titles Act compliant)
+
+#### 2.6.2 Data Elements
+| Section | Data Points |
+|---------|-------------|
+| **Fund Balances** | Opening balance (1 July), closing balance (30 June), change |
+| **Income Statement (Admin)** | All receipt categories with totals |
+| **Income Statement (CW)** | All receipt categories with totals |
+| **Expense Statement (Admin)** | All payment categories with totals |
+| **Expense Statement (CW)** | All payment categories with totals |
+| **Levy Collection** | Total levies raised, total collected, collection rate %, total arrears by lot |
+| **Budget vs. Actual Summary** | Annual budget vs. actual for key categories, variance |
+| **Notes** | Significant variances explained (e.g., "Insurance 15% over budget due to storm damage claim excess") |
+
+#### 2.6.3 SQL Query (EOFY Summary)
+```sql
+-- Opening and closing balances
+WITH opening_balance AS (
+  SELECT 
+    fund,
+    SUM(CASE WHEN type = 'receipt' THEN amount ELSE -amount END) AS balance
+  FROM transactions
+  WHERE scheme_id = $scheme_id
+    AND date < $fy_start_date
+  GROUP BY fund
+),
+closing_balance AS (
+  SELECT 
+    fund,
+    SUM(CASE WHEN type = 'receipt' THEN amount ELSE -amount END) AS balance
+  FROM transactions
+  WHERE scheme_id = $scheme_id
+    AND date <= $fy_end_date
+  GROUP BY fund
+),
+fy_income AS (
+  SELECT 
+    fund,
+    category,
+    SUM(amount) AS total
+  FROM transactions
+  WHERE scheme_id = $scheme_id
+    AND type = 'receipt'
+    AND date >= $fy_start_date
+    AND date <= $fy_end_date
+  GROUP BY fund, category
+),
+fy_expenses AS (
+  SELECT 
+    fund,
+    category,
+    SUM(amount) AS total
+  FROM transactions
+  WHERE scheme_id = $scheme_id
+    AND type = 'payment'
+    AND date >= $fy_start_date
+    AND date <= $fy_end_date
+  GROUP BY fund, category
+)
+SELECT 
+  ob.fund,
+  ob.balance AS opening_balance,
+  cb.balance AS closing_balance,
+  (cb.balance - ob.balance) AS change,
+  json_agg(json_build_object('category', i.category, 'amount', i.total)) AS income,
+  json_agg(json_build_object('category', e.category, 'amount', e.total)) AS expenses
+FROM opening_balance ob
+JOIN closing_balance cb ON ob.fund = cb.fund
+LEFT JOIN fy_income i ON ob.fund = i.fund
+LEFT JOIN fy_expenses e ON ob.fund = e.fund
+GROUP BY ob.fund, ob.balance, cb.balance;
+```
+
+#### 2.6.4 UI Specifications
+- **Multi-Page Report:**
+  - Page 1: Executive summary (fund balances, total income, total expenses, surplus/deficit)
+  - Page 2: Admin fund income statement
+  - Page 3: Admin fund expense statement
+  - Page 4: CW fund income statement
+  - Page 5: CW fund expense statement
+  - Page 6: Levy collection summary
+  - Page 7: Budget vs. actual variance report
+- **PDF Export:** Professional format with charts (income pie chart, expense pie chart)
+- **Automatic Storage:** Save to Document Storage → "Financial Reports" folder with filename "EOFY-[Scheme]-[FY Year].pdf"
+
+#### 2.6.5 WA Compliance Requirements
+- Include scheme name, ABN, financial year period
+- Separate admin and capital works funds
+- Show all categories of income and expenses
+- Include accountant/auditor declaration section (to be signed manually)
+- Attach to AGM notice as required by Strata Titles Act
+
+---
+
+### 2.7 Budget Preparation Tool
+
+**Purpose:** Enable managers and committees to create, edit, and approve annual budgets.
+
+#### 2.7.1 Scope
+- Create new budget for upcoming FY (copy from previous year as starting point)
+- Edit budget line items per category
+- Calculate total budget and required levy per lot
+- Approval workflow (manager drafts → committee reviews → committee approves)
+- Mid-year amendments (with audit trail)
+
+#### 2.7.2 Workflow
+1. **Draft Budget (Manager):**
+   - Navigate to Budget Management → "Create Budget for FY 2026/27"
+   - System auto-populates with previous year's budget + 5% inflation adjustment
+   - Manager edits line items (Insurance: $12,000 → $13,500 due to premium increase)
+   - System calculates total budget (admin + CW)
+   - System calculates levy per lot (total budget ÷ total entitlements ÷ 4 quarters)
+   - Save as "Draft"
+
+2. **Committee Review:**
+   - Manager shares draft budget with committee (email link to read-only view)
+   - Committee discusses at meeting (recorded in meeting minutes)
+   - Committee requests changes (e.g., "Reduce gardening budget by $1,000")
+
+3. **Approval:**
+   - Manager updates budget based on committee feedback
+   - Committee approves via resolution at AGM or SGM
+   - Manager marks budget as "Approved" with resolution date
+   - System locks budget for editing (amendments require new resolution)
+
+4. **Mid-Year Amendment:**
+   - Committee passes resolution to increase insurance budget by $2,000 (unexpected premium increase)
+   - Manager creates amendment record (linked to original budget)
+   - Amendment audit trail shows: original amount, new amount, resolution date, reason
+
+#### 2.7.3 Database Schema
+```sql
+CREATE TABLE budgets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  scheme_id UUID REFERENCES schemes(id) NOT NULL,
+  financial_year_id UUID REFERENCES financial_years(id) NOT NULL,
+  fund VARCHAR(20) NOT NULL, -- 'admin' or 'capital_works'
+  status VARCHAR(20) DEFAULT 'draft', -- 'draft', 'approved', 'amended'
+  approved_date DATE,
+  approved_resolution_id UUID REFERENCES meeting_resolutions(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES users(id),
+  UNIQUE(scheme_id, financial_year_id, fund)
+);
+
+CREATE TABLE budget_line_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  budget_id UUID REFERENCES budgets(id) ON DELETE CASCADE,
+  category_id UUID REFERENCES chart_of_accounts(id),
+  annual_amount DECIMAL(10,2) NOT NULL,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE budget_amendments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  budget_id UUID REFERENCES budgets(id),
+  category_id UUID REFERENCES chart_of_accounts(id),
+  original_amount DECIMAL(10,2),
+  new_amount DECIMAL(10,2),
+  amendment_date DATE NOT NULL,
+  resolution_id UUID REFERENCES meeting_resolutions(id),
+  reason TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+#### 2.7.4 UI Specifications
+- **Budget Editor:**
+  - Table layout: Category | Previous Year Actual | Previous Year Budget | New Budget | Variance | Notes
+  - Inline editing (click amount to edit)
+  - Auto-save as draft
+  - Summary footer: Total budget, levy per unit per quarter, levy per unit per year
+- **Levy Calculator Widget:**
+  - Display: "To raise $45,000, levy will be $125/unit/quarter (based on 90 total entitlements)"
+  - Allow reverse calculation: "If we want levy of $120/unit/quarter, total budget = $43,200"
+- **Approval Interface:**
+  - Mark as Approved button (prompts for resolution date and resolution ID)
+  - Lock icon appears once approved
+  - "Create Amendment" button for approved budgets
+
+---
+
+## 3. Budget vs. Actual Tracking
+
+### 3.1 Real-Time Comparison
+- Dashboard widget showing current variance % (updated daily)
+- Threshold alerts: if any category exceeds budget by >15%, send notification to manager
+- Trend analysis: month-over-month variance to predict EOFY overspend
+
+### 3.2 Variance Highlighting
+- **Color Coding:**
+  - Green: <5% variance (on track)
+  - Yellow: 5-15% variance (monitor closely)
+  - Red: >15% variance (action required)
+- **Drill-Down:** Click category → show all transactions contributing to variance
+
+### 3.3 Transaction Attribution
+- When entering a payment, system prompts: "This is your 4th payment for Insurance this year. Budget remaining: $1,200 (3 months left)."
+- Prevents accidental overspend by providing real-time budget context
+
+---
+
+## 4. Database Schema (Financial Reporting)
+
+### 4.1 Core Tables
+```sql
+-- Transactions (already defined in trust accounting feature)
+CREATE TABLE transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  scheme_id UUID REFERENCES schemes(id) NOT NULL,
+  lot_id UUID REFERENCES lots(id), -- NULL for scheme-level transactions
+  fund VARCHAR(20) NOT NULL, -- 'admin' or 'capital_works'
+  type VARCHAR(20) NOT NULL, -- 'receipt' or 'payment'
+  category_id UUID REFERENCES chart_of_accounts(id),
+  amount DECIMAL(10,2) NOT NULL,
+  date DATE NOT NULL,
+  description TEXT,
+  reference VARCHAR(100), -- bank reference, invoice number
+  reconciled BOOLEAN DEFAULT false,
+  reconciled_date DATE,
+  created_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Chart of Accounts (expenditure/income categories)
+CREATE TABLE chart_of_accounts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  scheme_id UUID REFERENCES schemes(id), -- NULL for global default categories
+  code VARCHAR(20) UNIQUE NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  type VARCHAR(20) NOT NULL, -- 'income' or 'expense'
+  fund VARCHAR(20) NOT NULL, -- 'admin' or 'capital_works'
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Default categories (seeded on scheme creation)
+INSERT INTO chart_of_accounts (code, name, type, fund) VALUES
+  ('4000', 'Levies', 'income', 'admin'),
+  ('4100', 'Interest Income', 'income', 'admin'),
+  ('4200', 'Other Income', 'income', 'admin'),
+  ('6000', 'Insurance', 'expense', 'admin'),
+  ('6100', 'Maintenance', 'expense', 'admin'),
+  ('6200', 'Utilities', 'expense', 'admin'),
+  ('6300', 'Gardening', 'expense', 'admin'),
+  ('6400', 'Management Fees', 'expense', 'admin'),
+  ('6500', 'Admin Expenses', 'expense', 'admin'),
+  ('4500', 'Special Levies', 'income', 'capital_works'),
+  ('6600', 'Capital Projects', 'expense', 'capital_works'),
+  ('6700', 'Asset Replacement', 'expense', 'capital_works');
+```
+
+### 4.2 Materialized Views (Performance Optimization)
+For schemes with 1000+ transactions, use materialized views for fast report generation:
+
+```sql
+-- Fund balances (refreshed daily via cron job)
+CREATE MATERIALIZED VIEW mv_fund_balances AS
+SELECT 
+  scheme_id,
+  fund,
+  SUM(CASE WHEN type = 'receipt' THEN amount ELSE -amount END) AS balance,
+  MAX(date) AS last_transaction_date
+FROM transactions
+GROUP BY scheme_id, fund;
+
+CREATE UNIQUE INDEX ON mv_fund_balances(scheme_id, fund);
+
+-- Refresh daily at 2am
+-- Supabase cron job: SELECT cron.schedule('refresh-fund-balances', '0 2 * * *', 'REFRESH MATERIALIZED VIEW CONCURRENTLY mv_fund_balances');
+
+-- Monthly category totals (for budget vs. actual)
+CREATE MATERIALIZED VIEW mv_monthly_category_totals AS
+SELECT 
+  scheme_id,
+  fund,
+  category_id,
+  DATE_TRUNC('month', date) AS month,
+  type,
+  SUM(amount) AS total_amount
+FROM transactions
+GROUP BY scheme_id, fund, category_id, DATE_TRUNC('month', date), type;
+
+CREATE INDEX ON mv_monthly_category_totals(scheme_id, fund, month);
+```
+
+### 4.3 Indexes for Query Performance
+```sql
+CREATE INDEX idx_transactions_scheme_date ON transactions(scheme_id, date);
+CREATE INDEX idx_transactions_scheme_fund_category ON transactions(scheme_id, fund, category_id);
+CREATE INDEX idx_transactions_lot_date ON transactions(lot_id, date) WHERE lot_id IS NOT NULL;
+CREATE INDEX idx_budgets_scheme_fy ON budgets(scheme_id, financial_year);
+```
+
+---
+
+## 5. PDF Generation
+
+### 5.1 Technology Choice: react-pdf
+
+**Rationale:**
+- Server-side rendering in Next.js API route
+- React component syntax (familiar to frontend developers)
+- Supports complex layouts (tables, charts, headers/footers)
+- Can embed images (scheme logo, charts rendered as PNG)
+
+### 5.2 PDF Template Structure
+```typescript
+// /app/api/reports/levy-roll/pdf/route.ts
+import { PDFDocument } from '@react-pdf/renderer';
+import { Document, Page, View, Text, StyleSheet, Image } from '@react-pdf/renderer';
+
+const styles = StyleSheet.create({
+  page: { padding: 30, fontSize: 10, fontFamily: 'Helvetica' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+  logo: { width: 100, height: 50 },
+  title: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
+  table: { display: 'table', width: '100%', marginTop: 10 },
+  tableRow: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#ddd' },
+  tableHeader: { backgroundColor: '#f0f0f0', fontWeight: 'bold', padding: 5 },
+  tableCell: { padding: 5, flex: 1 },
+  footer: { position: 'absolute', bottom: 30, left: 30, right: 30, fontSize: 8, color: '#666' }
+});
+
+const LevyRollPDF = ({ scheme, lots, reportDate }) => (
+  <Document>
+    <Page size="A4" style={styles.page}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Image src={scheme.logoUrl} style={styles.logo} />
+        <View>
+          <Text style={styles.title}>{scheme.name}</Text>
+          <Text>{scheme.address}</Text>
+          <Text>ABN: {scheme.abn}</Text>
+        </View>
+      </View>
+
+      {/* Report Title */}
+      <Text style={styles.title}>Levy Roll Report</Text>
+      <Text>Period: {reportDate.start} to {reportDate.end}</Text>
+
+      {/* Table */}
+      <View style={styles.table}>
+        {/* Header Row */}
+        <View style={[styles.tableRow, styles.tableHeader]}>
+          <Text style={styles.tableCell}>Lot</Text>
+          <Text style={styles.tableCell}>Owner</Text>
+          <Text style={styles.tableCell}>Levy</Text>
+          <Text style={styles.tableCell}>Paid</Text>
+          <Text style={styles.tableCell}>Balance</Text>
+        </View>
+        
+        {/* Data Rows */}
+        {lots.map(lot => (
+          <View style={styles.tableRow} key={lot.id}>
+            <Text style={styles.tableCell}>{lot.lotNumber}</Text>
+            <Text style={styles.tableCell}>{lot.ownerName}</Text>
+            <Text style={styles.tableCell}>${lot.totalLevy.toFixed(2)}</Text>
+            <Text style={styles.tableCell}>${lot.payments.toFixed(2)}</Text>
+            <Text style={[styles.tableCell, lot.balance > 0 && { color: 'red' }]}>
+              ${lot.balance.toFixed(2)}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      {/* Footer */}
+      <Text style={styles.footer}>
+        Generated by LevyLite on {new Date().toLocaleDateString()} | Page 1 of 1
+      </Text>
+    </Page>
+  </Document>
+);
+```
+
+### 5.3 Chart Embedding
+For charts in PDFs (e.g., budget vs. actual bar chart):
+1. Render chart in React using Recharts
+2. Convert to PNG using `html-to-image` library
+3. Embed PNG in PDF via `<Image>` component
+
+```typescript
+import { toPng } from 'html-to-image';
+
+// Server-side (API route)
+const chartDataUrl = await toPng(chartRef.current);
+// Pass chartDataUrl to PDF component
+<Image src={chartDataUrl} style={{ width: 400, height: 200 }} />
+```
+
+### 5.4 Branding Customization
+- **Scheme Letterhead:** Upload logo in scheme settings → stored in Supabase Storage → URL referenced in PDF
+- **Color Scheme:** Allow scheme to customize primary color (default: blue) → used for table headers, section dividers
+- **Footer Text:** Customizable per scheme (e.g., "Contact: manager@strataco.com.au | Ph: 08 9123 4567")
+
+---
+
+## 6. Dashboard Widgets
+
+### 6.1 Fund Balance Cards
+**Location:** Main dashboard (top row)
+
+**Admin Fund Card:**
+- Current balance (large number, green if positive, red if negative)
+- Trend arrow (↑ increased since last month, ↓ decreased)
+- Last transaction date
+- Click → Fund Balance Report
+
+**Capital Works Fund Card:**
+- Same structure as Admin Fund Card
+
+**Combined Card (Optional Toggle):**
+- Total across both funds
+
+### 6.2 Arrears Chart
+**Location:** Main dashboard (second row, left)
+
+**Visualization:** Horizontal bar chart showing:
+- Number of lots with $0 arrears (green)
+- Number of lots with 1-30 days arrears (yellow)
+- Number of lots with 31-60 days arrears (orange)
+- Number of lots with >60 days arrears (red)
+
+**Interaction:** Click bar → Levy Roll Report filtered by that arrears category
+
+### 6.3 Budget Health Indicator
+**Location:** Main dashboard (second row, right)
+
+**Visualization:** Circular progress bar showing % of budget consumed YTD
+- Green: <75% (on track)
+- Yellow: 75-95% (monitor)
+- Red: >95% (overspending risk)
+
+**Detail View:** Top 3 over-budget categories listed below with variance amounts
+
+**Interaction:** Click → Budget vs. Actual Report
+
+### 6.4 Upcoming AGM Reminder
+**Location:** Main dashboard (third row)
+
+**Content:**
+- "AGM Due: 15 days" (countdown)
+- "Financials Required: EOFY Report, Budget for Next Year"
+- Button: "Generate EOFY Report"
+
+**Logic:** Show widget if AGM date is within 60 days or overdue
+
+---
+
+## 7. Date Range Selection & Financial Year Handling
+
+### 7.1 Date Range Presets
+All reports include a date range selector with presets:
+- **This Month**
+- **This Quarter** (Q1: Jul-Sep, Q2: Oct-Dec, Q3: Jan-Mar, Q4: Apr-Jun)
+- **This Financial Year** (1 Jul - 30 Jun)
+- **Last Financial Year**
+- **Custom Range** (date picker: start date to end date)
+
+### 7.2 Financial Year Configuration
+**Default:** 1 July to 30 June (Australian standard)
+
+**Customization (Per Scheme):** Some schemes may have different FY (e.g., 1 Jan - 31 Dec if aligned with calendar year). Scheme settings allows override:
+```typescript
+interface Scheme {
+  id: string;
+  name: string;
+  financialYearStart: string; // 'MM-DD' format, default '07-01'
+}
+```
+
+**FY Calculation Logic:**
+```typescript
+function getCurrentFY(scheme: Scheme): { start: Date; end: Date } {
+  const today = new Date();
+  const [fyMonth, fyDay] = scheme.financialYearStart.split('-').map(Number);
+  
+  let fyStartYear = today.getFullYear();
+  if (today.getMonth() + 1 < fyMonth || (today.getMonth() + 1 === fyMonth && today.getDate() < fyDay)) {
+    fyStartYear -= 1;
+  }
+  
+  const start = new Date(fyStartYear, fyMonth - 1, fyDay);
+  const end = new Date(fyStartYear + 1, fyMonth - 1, fyDay - 1);
+  
+  return { start, end };
+}
+```
+
+### 7.3 Multi-Year Comparisons (Future Enhancement)
+**Phase 2:** Allow side-by-side comparison of current FY vs. previous FY for budget vs. actual, income statements, etc.
+
+---
+
+## 8. Auto-Storage to Document Library
+
+### 8.1 Workflow
+1. User generates report (e.g., EOFY Report)
+2. User clicks "Export to PDF"
+3. System generates PDF (react-pdf)
+4. System uploads PDF to Supabase Storage (`/schemes/{scheme_id}/reports/{report_type}/{filename}.pdf`)
+5. System creates document record in `documents` table:
+   ```sql
+   INSERT INTO documents (scheme_id, folder, filename, file_path, document_type, tags, uploaded_by, uploaded_at)
+   VALUES (
+     $scheme_id,
+     'Financial Reports',
+     'EOFY-2025-26.pdf',
+     '/schemes/{scheme_id}/reports/eofy/EOFY-2025-26.pdf',
+     'eofy_report',
+     ARRAY['financial', 'eofy', '2025-26'],
+     $user_id,
+     NOW()
+   );
+   ```
+6. User receives confirmation: "Report saved to Document Storage → Financial Reports"
+
+### 8.2 Retention Policy
+- **7-Year Retention:** All financial reports automatically tagged with expiry date = upload date + 7 years
+- **Audit Log:** Document access logged (who viewed, when)
+- **Automatic Deletion:** Supabase cron job deletes documents >7 years old (configurable, default = keep indefinitely for legal safety)
+
+---
+
+## 9. Dependencies on Other Features
+
+### 9.1 Trust Accounting (Feature 03)
+- **Dependency:** All financial reports rely on accurate transaction data from trust accounting module
+- **Impact:** If trust accounting transactions are incorrect, all reports are incorrect
+- **Mitigation:** Strong validation rules in transaction entry (double-entry accounting checks)
+
+### 9.2 Levy Management (Feature 02)
+- **Dependency:** Levy Roll Report requires levy schedules, due dates, and payment tracking
+- **Impact:** Cannot generate Levy Roll without levy schedules defined
+- **Mitigation:** UI prompts manager to set up levy schedule when creating new scheme
+
+### 9.3 Scheme & Lot Register (Feature 01)
+- **Dependency:** All reports filtered by scheme, Levy Roll requires lot entitlements
+- **Impact:** Incorrect entitlements → incorrect levy calculations
+- **Mitigation:** Entitlement validation on lot creation (sum of entitlements must equal scheme total entitlements)
+
+### 9.4 Document Storage (Feature 06)
+- **Dependency:** Auto-storage of generated reports to document library
+- **Impact:** If document storage fails, reports still generated but not archived
+- **Mitigation:** Fallback = allow user to manually download PDF if auto-upload fails
+
+### 9.5 Meeting Administration (Feature 04)
+- **Dependency:** Budget approval linked to AGM/SGM resolutions
+- **Impact:** Cannot mark budget as "approved" without resolution record
+- **Mitigation:** Allow manual approval override (manager enters resolution date/number manually)
+
+---
+
+## 10. Technical Implementation Details
+
+### 10.1 Report Generation Architecture
+
+**Option 1: Server-Side Generation (Recommended for MVP)**
+- **Flow:** User clicks "Generate Report" → Next.js API route executes SQL query → react-pdf generates PDF → returns PDF URL
+- **Pros:** No client-side performance impact, consistent rendering, easier to auto-store
+- **Cons:** Server load increases with concurrent report requests
+
+**Implementation:**
+```typescript
+// /app/api/reports/levy-roll/route.ts
+export async function POST(request: Request) {
+  const { schemeId, startDate, endDate } = await request.json();
+  
+  // Fetch data
+  const lots = await fetchLevyRollData(schemeId, startDate, endDate);
+  
+  // Generate PDF
+  const pdfBlob = await renderToBuffer(<LevyRollPDF lots={lots} />);
+  
+  // Upload to Supabase Storage
+  const filePath = `/schemes/${schemeId}/reports/levy-roll/${Date.now()}.pdf`;
+  await supabase.storage.from('documents').upload(filePath, pdfBlob);
+  
+  // Save to document library
+  await supabase.from('documents').insert({
+    scheme_id: schemeId,
+    folder: 'Financial Reports',
+    filename: `Levy-Roll-${startDate}-${endDate}.pdf`,
+    file_path: filePath,
+    document_type: 'levy_roll'
+  });
+  
+  return Response.json({ success: true, fileUrl: getPublicUrl(filePath) });
+}
+```
+
+**Option 2: Client-Side Generation (Future Optimization)**
+- **Flow:** User clicks "Generate Report" → React component fetches data via API → react-pdf generates PDF in browser → user downloads
+- **Pros:** No server load
+- **Cons:** Slow on low-end devices, harder to auto-store
+
+### 10.2 Supabase Edge Functions for Heavy Queries
+For complex reports (EOFY, Trial Balance), offload computation to Supabase Edge Functions:
+
+```typescript
+// supabase/functions/generate-eofy-report/index.ts
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+serve(async (req) => {
+  const { schemeId, financialYear } = await req.json();
+  
+  const supabase = createClient(Deno.env.get('SUPABASE_URL'), Deno.env.get('SUPABASE_SERVICE_KEY'));
+  
+  // Execute complex EOFY queries
+  const { data: openingBalances } = await supabase.rpc('get_opening_balances', { scheme_id: schemeId, fy_start: financialYear.start });
+  const { data: income } = await supabase.rpc('get_fy_income', { scheme_id: schemeId, fy_start: financialYear.start, fy_end: financialYear.end });
+  // ... more queries
+  
+  return new Response(JSON.stringify({ openingBalances, income, ... }), {
+    headers: { 'Content-Type': 'application/json' }
+  });
+});
+```
+
+### 10.3 Caching Strategy
+- **Materialized Views:** Refresh daily at 2am (low-traffic period)
+- **API Route Caching:** Cache fund balance queries for 5 minutes (Next.js `unstable_cache`)
+- **PDF Caching:** Store generated PDFs for 24 hours (same parameters = return cached PDF instead of regenerating)
+
+---
+
+## 11. Open Questions & Decisions Needed
+
+### 11.1 Chart of Accounts Customization
+**Question:** Should schemes be able to customize their chart of accounts (add custom categories)?
+**Options:**
+- A) Fixed categories for all schemes (easier, ensures consistency)
+- B) Allow custom categories per scheme (flexible, but complex reporting if every scheme different)
+**Recommendation:** MVP = fixed categories, Phase 2 = allow custom categories with warning ("Custom categories won't appear in industry benchmarking reports")
+
+### 11.2 Multi-Currency Support
+**Question:** Do any WA schemes need multi-currency (e.g., international owners paying in USD)?
+**Current Assumption:** AUD only for MVP
+**Future:** Add currency field to transactions table if customer demand exists
+
+### 11.3 Accountant/Auditor Access
+**Question:** Should external accountants have direct read-only access to the system?
+**Options:**
+- A) Manager exports reports and emails to accountant (manual, MVP approach)
+- B) Accountant role with read-only access to financials (better UX, requires invitation workflow)
+**Recommendation:** MVP = manual export, Phase 2 = auditor role with invite link
+
+### 11.4 Real-Time vs. Batch Report Generation
+**Question:** Should reports be generated on-demand (real-time) or scheduled overnight (batch)?
+**Current Design:** On-demand for all reports except materialized views (refreshed overnight)
+**Consideration:** If a scheme has 10,000+ transactions, EOFY report may take 10-15 seconds to generate → acceptable for MVP (add loading spinner)
+
+### 11.5 Email Delivery of Reports
+**Question:** Should managers be able to email reports directly from the system to committee members?
+**Options:**
+- A) Download PDF, manager emails manually (MVP)
+- B) "Email to Committee" button → sends PDF as attachment (Phase 2)
+**Recommendation:** MVP = manual download, Phase 2 = email integration
+
+### 11.6 Benchmark Reporting
+**Question:** Should we provide industry benchmarks (e.g., "Your insurance cost is 15% above average for similar schemes")?
+**Challenge:** Requires anonymized data aggregation across schemes, privacy considerations
+**Recommendation:** Phase 3 feature (requires critical mass of customers for meaningful benchmarks)
+
+---
+
+## 12. Success Metrics (Feature-Specific)
+
+### 12.1 Adoption Metrics
+- **Target:** 80% of managers generate at least one financial report per scheme per quarter
+- **Measure:** Track report generation events in analytics (Plausible/PostHog)
+
+### 12.2 Time Savings
+- **Baseline:** Managers currently spend 30-40 minutes creating levy roll in Excel
+- **Target:** <2 minutes to generate levy roll in LevyLite
+- **Measure:** Time-to-PDF (from button click to PDF download link)
+
+### 12.3 Accuracy
+- **Target:** Zero reported accounting discrepancies in beta testing (trial balance always balances)
+- **Measure:** User-reported bugs, trial balance validation checks
+
+### 12.4 Export Rate
+- **Target:** 60%+ of generated reports exported to PDF (indicates reports are useful enough to share)
+- **Measure:** PDF export button clicks ÷ report generation events
+
+### 12.5 EOFY Completion
+- **Target:** 100% of managers generate EOFY report within 30 days of financial year end
+- **Measure:** EOFY report generation dates, reminder notifications sent
+
+---
+
+## 13. Future Enhancements (Post-MVP)
+
+### 13.1 Interactive Dashboards
+- Drag-and-drop dashboard builder (managers choose which widgets to display)
+- Drill-down charts (click bar in arrears chart → see specific lots)
+
+### 13.2 Automated Report Scheduling
+- Schedule monthly reports to be auto-generated and emailed to committee
+- Example: "Send fund balance summary to committee secretary on 1st of each month"
+
+### 13.3 Cash Flow Forecasting
+- Predict future fund balances based on levy schedule, historical expenses, known upcoming costs
+- Alert manager if projected balance will go negative
+
+### 13.4 Comparative Reporting
+- Side-by-side comparison of FY 2024/25 vs. FY 2025/26
+- Trend analysis: expense categories increasing/decreasing over 3 years
+
+### 13.5 API for Accountant Software Integration
+- Export data directly to Xero/MYOB via API
+- Reduce double-entry for accountants
+
+### 13.6 AI-Powered Insights
+- "Your insurance expense increased 20% this year. Similar schemes negotiated 12% savings by switching brokers."
+- Anomaly detection: "Maintenance expense spike in March (250% above average) — review for errors"
+
+---
+
+## 14. Appendix: Sample Report Outputs
+
+### 14.1 Levy Roll Report (PDF Preview)
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                    GREENWOOD GARDENS STRATA
+                   123 Garden Street, Perth WA 6000
+                          ABN: 12 345 678 901
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+                         LEVY ROLL REPORT
+                    Period: 1 Jul 2025 - 30 Sep 2025
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Lot | Unit Address | Owner Name      | Levy    | Paid    | Balance | Status
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1   | Unit 1       | John Smith      | $1,250  | $1,250  | $0.00   | Current
+2   | Unit 2       | Mary Johnson    | $1,250  | $1,250  | $0.00   | Current
+3   | Unit 3       | David Lee       | $1,250  | $800    | $450.00 | Arrears (45d)
+4   | Unit 4       | Sarah Brown     | $1,250  | $0      | $1,250  | Arrears (65d)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SUMMARY
+Total Levies Raised:    $5,000.00
+Total Payments:         $3,300.00
+Total Arrears:          $1,700.00
+Collection Rate:        66%
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Generated by LevyLite on 16/02/2026 | Page 1 of 1
+```
+
+### 14.2 Budget vs. Actual (Table View)
+| Category | Budget (Q1) | Actual (Q1) | Variance | Variance % |
+|----------|-------------|-------------|----------|------------|
+| Insurance | $3,000 | $3,150 | +$150 | **+5%** 🟡 |
+| Maintenance | $2,000 | $2,850 | +$850 | **+43%** 🔴 |
+| Utilities | $1,500 | $1,420 | -$80 | -5% 🟢 |
+| Gardening | $1,000 | $950 | -$50 | -5% 🟢 |
+| **Total** | **$7,500** | **$8,370** | **+$870** | **+12%** 🔴 |
+
+---
+
+**End of Feature Specification**
+
+---
+
+## Change Log
+- **v1.0 (16 Feb 2026):** Initial draft created by Kai (AI Agent)
+
+## Review & Approval
+- [ ] Technical review by Chris Johnstone
+- [ ] User validation with design partner (Donna Henneberry)
+- [ ] Accountant review for WA compliance
+- [ ] Sign-off for development sprint planning
