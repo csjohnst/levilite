@@ -214,8 +214,8 @@ export default function Home() {
               </ul>
               <p className="text-xs text-[#3A3A3A]/50">Most small operators</p>
             </Card>
-            <Card className="p-6 border-2 border-[#0090B7] shadow-lg">
-              <div className="bg-[#0090B7] text-white text-xs font-bold px-2 py-1 rounded inline-block mb-2">
+            <Card className="relative p-6 border-2 border-[#0090B7] shadow-lg">
+              <div className="absolute -top-3 left-6 bg-[#0090B7] text-white text-xs font-bold px-3 py-1 rounded-full">
                 MOST POPULAR
               </div>
               <h3 className="text-2xl font-bold mb-2 text-[#3A3A3A]">Professional</h3>
