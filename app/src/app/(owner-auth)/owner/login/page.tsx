@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
 import {
   Card,
   CardContent,
@@ -17,16 +19,41 @@ import {
 
 export default function OwnerLoginPage() {
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [sent, setSent] = useState(false)
+  const [magicLinkLoading, setMagicLinkLoading] = useState(false)
+  const [magicLinkSent, setMagicLinkSent] = useState(false)
 
+  const router = useRouter()
   const supabase = createClient()
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handlePasswordLogin(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     setLoading(true)
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) {
+      setError('Invalid email or password.')
+      setLoading(false)
+      return
+    }
+
+    router.push('/owner')
+  }
+
+  async function handleMagicLink() {
+    if (!email) {
+      setError('Please enter your email address first.')
+      return
+    }
+    setError(null)
+    setMagicLinkLoading(true)
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
@@ -49,12 +76,12 @@ export default function OwnerLoginPage() {
         setError(error.message)
       }
     } else {
-      setSent(true)
+      setMagicLinkSent(true)
     }
-    setLoading(false)
+    setMagicLinkLoading(false)
   }
 
-  if (sent) {
+  if (magicLinkSent) {
     return (
       <Card>
         <CardHeader>
@@ -74,7 +101,7 @@ export default function OwnerLoginPage() {
           <Button
             variant="ghost"
             className="w-full"
-            onClick={() => setSent(false)}
+            onClick={() => setMagicLinkSent(false)}
           >
             Back to login
           </Button>
@@ -98,7 +125,7 @@ export default function OwnerLoginPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handlePasswordLogin} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email address</Label>
             <Input
@@ -111,10 +138,41 @@ export default function OwnerLoginPage() {
               autoFocus
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="Your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? 'Sending...' : 'Send Login Link'}
+            {loading ? 'Signing in...' : 'Sign In'}
           </Button>
         </form>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <Separator />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-card px-2 text-muted-foreground">
+              Or
+            </span>
+          </div>
+        </div>
+
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={handleMagicLink}
+          disabled={magicLinkLoading}
+        >
+          {magicLinkLoading ? 'Sending...' : 'Send me a login link instead'}
+        </Button>
       </CardContent>
       <CardFooter className="justify-center">
         <p className="text-sm text-muted-foreground">

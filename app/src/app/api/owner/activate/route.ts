@@ -3,10 +3,17 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function POST(request: Request) {
   try {
-    const { token } = await request.json()
+    const { token, password } = await request.json()
 
     if (!token) {
       return NextResponse.json({ error: 'Missing token' }, { status: 400 })
+    }
+
+    if (!password || password.length < 8) {
+      return NextResponse.json(
+        { error: 'Password must be at least 8 characters' },
+        { status: 400 }
+      )
     }
 
     let decoded: { ownerId: string; portalUserId: string; ts: number }
@@ -63,6 +70,19 @@ export async function POST(request: Request) {
         email: owner.email,
         alreadyActivated: true,
       })
+    }
+
+    // Set the password on the auth user via admin API
+    const { error: updateUserError } = await adminSupabase.auth.admin.updateUserById(
+      decoded.portalUserId,
+      { password }
+    )
+
+    if (updateUserError) {
+      return NextResponse.json(
+        { error: `Failed to set password: ${updateUserError.message}` },
+        { status: 500 }
+      )
     }
 
     // Mark as activated

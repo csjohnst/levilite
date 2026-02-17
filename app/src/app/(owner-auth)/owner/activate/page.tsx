@@ -1,10 +1,12 @@
 'use client'
 
 import { Suspense, useState, useEffect } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Card,
   CardContent,
@@ -34,10 +36,13 @@ export default function OwnerActivatePage() {
 
 function OwnerActivateContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const token = searchParams.get('token')
   const [state, setState] = useState<ActivationState>('loading')
   const [error, setError] = useState<string | null>(null)
-  const [ownerEmail, setOwnerEmail] = useState<string | null>(null)
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordError, setPasswordError] = useState<string | null>(null)
 
   const supabase = createClient()
 
@@ -49,13 +54,11 @@ function OwnerActivateContent() {
     }
 
     try {
-      // base64url → base64 → decode (browser-safe, no Node Buffer needed)
       const base64 = token.replace(/-/g, '+').replace(/_/g, '/')
       const decoded = JSON.parse(atob(base64))
       if (!decoded.ownerId || !decoded.portalUserId) {
         throw new Error('Invalid token')
       }
-      // Check if token is older than 7 days
       if (decoded.ts && Date.now() - decoded.ts > 7 * 24 * 60 * 60 * 1000) {
         setError(
           'This activation link has expired. Please contact your strata manager to request a new one.'
@@ -70,15 +73,29 @@ function OwnerActivateContent() {
     }
   }, [token])
 
-  async function handleActivate() {
+  async function handleActivate(e: React.FormEvent) {
+    e.preventDefault()
     if (!token) return
+
+    setPasswordError(null)
+
+    if (password.length < 8) {
+      setPasswordError('Password must be at least 8 characters.')
+      return
+    }
+
+    if (password !== confirmPassword) {
+      setPasswordError('Passwords do not match.')
+      return
+    }
+
     setState('activating')
 
     try {
       const response = await fetch('/api/owner/activate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token, password }),
       })
 
       const result = await response.json()
@@ -87,23 +104,20 @@ function OwnerActivateContent() {
         throw new Error(result.error || 'Activation failed')
       }
 
-      setOwnerEmail(result.email)
-
-      // Send magic link for first login
-      const { error: otpError } = await supabase.auth.signInWithOtp({
+      // Sign in immediately with the password they just set
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email: result.email,
-        options: {
-          shouldCreateUser: false,
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/owner`,
-        },
+        password,
       })
 
-      if (otpError) {
-        // Activation succeeded but login link failed - still show success
-        console.error('[activate] Failed to send login link:', otpError)
+      if (signInError) {
+        // Activation succeeded but auto-login failed — send them to login page
+        setState('success')
+        return
       }
 
-      setState('success')
+      // Redirect to owner portal
+      router.push('/owner')
     } catch (err) {
       setError(
         err instanceof Error
@@ -155,9 +169,7 @@ function OwnerActivateContent() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            {ownerEmail
-              ? `A login link has been sent to ${ownerEmail}. Check your email to sign in.`
-              : 'Check your email for a login link to sign in.'}
+            You can now sign in with your email and password.
           </p>
         </CardContent>
         <CardFooter>
@@ -174,24 +186,55 @@ function OwnerActivateContent() {
       <CardHeader>
         <CardTitle>Activate Your Account</CardTitle>
         <CardDescription>
-          Click below to activate your owner portal account and receive a login
-          link.
+          Create a password to activate your owner portal account.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-muted-foreground">
-          Once activated, you will be able to view your levy statements, access
-          scheme documents, submit maintenance requests, and more.
-        </p>
+        <form onSubmit={handleActivate} className="space-y-4">
+          {passwordError && (
+            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              {passwordError}
+            </div>
+          )}
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="At least 8 characters"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={8}
+              autoFocus
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirm-password">Confirm password</Label>
+            <Input
+              id="confirm-password"
+              type="password"
+              placeholder="Confirm your password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              minLength={8}
+            />
+          </div>
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={state === 'activating'}
+          >
+            {state === 'activating' ? 'Activating...' : 'Activate Account'}
+          </Button>
+        </form>
       </CardContent>
-      <CardFooter>
-        <Button
-          onClick={handleActivate}
-          className="w-full"
-          disabled={state === 'activating'}
-        >
-          {state === 'activating' ? 'Activating...' : 'Confirm and Activate'}
-        </Button>
+      <CardFooter className="justify-center">
+        <p className="text-sm text-muted-foreground">
+          Once activated, you can view your levy statements, documents,
+          maintenance requests, and more.
+        </p>
       </CardFooter>
     </Card>
   )
