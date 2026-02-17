@@ -22,22 +22,31 @@ export function SignupForm({ buttonText = "Get early access", className = "", da
     setStatus("loading");
 
     try {
-      // Subscribe via Kit API v4 form endpoint
-      const response = await fetch("https://api.kit.com/v4/forms/9097515/subscribers", {
+      const API_KEY = "kit_373287bfc9ba036f5460fdf3c5be6d8d";
+      const headers = { "Content-Type": "application/json", "X-Kit-Api-Key": API_KEY };
+
+      // Step 1: Create subscriber
+      const subRes = await fetch("https://api.kit.com/v4/subscribers", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Kit-Api-Key": "kit_373287bfc9ba036f5460fdf3c5be6d8d",
-        },
+        headers,
         body: JSON.stringify({ email_address: email }),
       });
 
-      if (response.ok) {
+      if (!subRes.ok) throw new Error("Failed to create subscriber");
+      const { subscriber } = await subRes.json();
+
+      // Step 2: Add subscriber to LevyLite form
+      const formRes = await fetch(`https://api.kit.com/v4/forms/9097515/subscribers/${subscriber.id}`, {
+        method: "POST",
+        headers,
+      });
+
+      if (formRes.ok) {
         setStatus("success");
         setMessage("You're in! We'll be in touch soon.");
         setEmail("");
       } else {
-        throw new Error("Subscription failed");
+        throw new Error("Failed to add to form");
       }
     } catch {
       setStatus("error");
