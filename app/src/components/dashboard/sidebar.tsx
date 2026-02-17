@@ -91,15 +91,11 @@ const navItems = [
     title: 'Documents',
     href: '/documents',
     icon: FileText,
-    disabled: true,
-    badge: 'Soon',
   },
   {
     title: 'Reports',
     href: '/reports',
     icon: BarChart3,
-    disabled: true,
-    badge: 'Soon',
   },
   {
     title: 'Settings',

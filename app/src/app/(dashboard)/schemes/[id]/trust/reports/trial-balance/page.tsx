@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/table'
 import { getTrialBalance } from '@/actions/reports'
 import type { TrialBalanceRow } from '@/actions/reports'
+import { ExportPDFButton } from '@/components/reports/export-pdf-button'
 
 function formatCurrency(amount: number): string {
   return '$' + Math.abs(amount).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -80,12 +81,19 @@ export default async function TrialBalancePage({
             {date && ` (as at ${date})`}
           </p>
         </div>
-        <Button asChild variant="outline">
-          <Link href={`/schemes/${id}/trust/reports`}>
-            <ArrowLeft className="mr-2 size-4" />
-            Back to Reports
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExportPDFButton
+            schemeId={id}
+            reportType="trial-balance"
+            params={{ asAtDate: date || undefined }}
+          />
+          <Button asChild variant="outline">
+            <Link href={`/schemes/${id}/trust/reports`}>
+              <ArrowLeft className="mr-2 size-4" />
+              Back to Reports
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Balance status */}

@@ -1,6 +1,8 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { renderToBuffer, type DocumentProps } from '@react-pdf/renderer'
+import React from 'react'
 
 async function getAuth() {
   const supabase = await createClient()
@@ -418,4 +420,248 @@ export async function getLedgerBalance(
       trustAccountId: trustAccount.id,
     },
   }
+}
+
+/**
+ * Generate a PDF report and optionally save to Supabase Storage.
+ * Returns a signed download URL.
+ */
+export async function generateReportPDF(
+  schemeId: string,
+  reportType: 'trial-balance' | 'fund-summary' | 'income-statement' | 'budget-vs-actual' | 'levy-roll',
+  params?: {
+    asAtDate?: string
+    startDate?: string
+    endDate?: string
+    financialYearId?: string
+    fundType?: 'admin' | 'capital_works'
+    periodId?: string
+    save?: boolean
+  },
+) {
+  const result = await getAuth()
+  if ('error' in result && !('supabase' in result)) return { error: result.error }
+  const { supabase, user } = result as Exclude<typeof result, { error: string }>
+
+  // Get scheme details for the PDF header
+  const { data: scheme, error: schemeError } = await supabase
+    .from('schemes')
+    .select('id, scheme_name, scheme_number, street_address, suburb, state, postcode')
+    .eq('id', schemeId)
+    .single()
+
+  if (schemeError || !scheme) return { error: 'Scheme not found' }
+
+  const schemeAddress = `${scheme.street_address}, ${scheme.suburb} ${scheme.state} ${scheme.postcode}`
+
+  let pdfElement: React.ReactElement<DocumentProps>
+  let fileName: string
+
+  try {
+    switch (reportType) {
+      case 'trial-balance': {
+        const { TrialBalanceReportPDF } = await import('@/lib/pdf/trial-balance-report')
+        const tbResult = await getTrialBalance(schemeId, params?.asAtDate)
+        if (!tbResult.data) return { error: 'Failed to fetch trial balance data' }
+
+        pdfElement = React.createElement(TrialBalanceReportPDF, {
+          data: {
+            schemeName: scheme.scheme_name,
+            schemeNumber: scheme.scheme_number,
+            schemeAddress,
+            asAtDate: params?.asAtDate ?? null,
+            ...tbResult.data,
+          },
+        }) as React.ReactElement<DocumentProps>
+        fileName = `trial-balance-${params?.asAtDate ?? 'current'}.pdf`
+        break
+      }
+
+      case 'fund-summary': {
+        const { FundBalanceReportPDF } = await import('@/lib/pdf/fund-balance-report')
+        const dateRange = params?.startDate && params?.endDate
+          ? { startDate: params.startDate, endDate: params.endDate }
+          : undefined
+        const fsResult = await getFundBalanceSummary(schemeId, dateRange)
+        if (!fsResult.data) return { error: 'Failed to fetch fund balance data' }
+
+        pdfElement = React.createElement(FundBalanceReportPDF, {
+          data: {
+            schemeName: scheme.scheme_name,
+            schemeNumber: scheme.scheme_number,
+            schemeAddress,
+            dateRange: dateRange ?? null,
+            balances: fsResult.data,
+          },
+        }) as React.ReactElement<DocumentProps>
+        fileName = `fund-summary.pdf`
+        break
+      }
+
+      case 'income-statement': {
+        const { IncomeStatementReportPDF } = await import('@/lib/pdf/income-statement-report')
+        const now = new Date()
+        const defaultStart = now.getMonth() >= 6
+          ? `${now.getFullYear()}-07-01`
+          : `${now.getFullYear() - 1}-07-01`
+        const defaultEnd = now.getMonth() >= 6
+          ? `${now.getFullYear() + 1}-06-30`
+          : `${now.getFullYear()}-06-30`
+        const startDate = params?.startDate ?? defaultStart
+        const endDate = params?.endDate ?? defaultEnd
+
+        const isResult = await getIncomeStatement(schemeId, { startDate, endDate })
+        if (!isResult.data) return { error: 'Failed to fetch income statement data' }
+
+        pdfElement = React.createElement(IncomeStatementReportPDF, {
+          data: {
+            schemeName: scheme.scheme_name,
+            schemeNumber: scheme.scheme_number,
+            schemeAddress,
+            startDate,
+            endDate,
+            statement: isResult.data,
+          },
+        }) as React.ReactElement<DocumentProps>
+        fileName = `income-statement-${startDate}-to-${endDate}.pdf`
+        break
+      }
+
+      case 'budget-vs-actual': {
+        const { BudgetVsActualReportPDF } = await import('@/lib/pdf/budget-vs-actual-report')
+        const { getBudgetVsActual } = await import('@/actions/budgets')
+
+        if (!params?.financialYearId) return { error: 'Financial year ID is required' }
+        const fundType = params?.fundType ?? 'admin'
+
+        const bvaResult = await getBudgetVsActual(schemeId, params.financialYearId, fundType)
+        if (!bvaResult.data) return { error: bvaResult.error ?? 'Failed to fetch budget vs actual data' }
+
+        // Get FY label
+        const { data: fy } = await supabase
+          .from('financial_years')
+          .select('year_label')
+          .eq('id', params.financialYearId)
+          .single()
+
+        pdfElement = React.createElement(BudgetVsActualReportPDF, {
+          data: {
+            schemeName: scheme.scheme_name,
+            schemeNumber: scheme.scheme_number,
+            schemeAddress,
+            financialYear: fy?.year_label ?? 'Unknown',
+            fundType,
+            rows: bvaResult.data,
+          },
+        }) as React.ReactElement<DocumentProps>
+        fileName = `budget-vs-actual-${fundType}-${fy?.year_label?.replace('/', '-') ?? 'unknown'}.pdf`
+        break
+      }
+
+      case 'levy-roll': {
+        const { LevyRollReportPDF } = await import('@/lib/pdf/levy-roll-report')
+
+        if (!params?.periodId) return { error: 'Period ID is required' }
+
+        // Get period info
+        const { data: period, error: periodError } = await supabase
+          .from('levy_periods')
+          .select('id, period_name, period_start, period_end')
+          .eq('id', params.periodId)
+          .single()
+
+        if (periodError || !period) return { error: 'Period not found' }
+
+        // Get levy items with lot/owner info
+        const { data: levyItems } = await supabase
+          .from('levy_items')
+          .select('*, lots(lot_number, unit_number, lot_ownerships(owners(first_name, last_name)))')
+          .eq('levy_period_id', params.periodId)
+          .order('lots(lot_number)')
+
+        const items = (levyItems ?? []).map((item: Record<string, unknown>) => {
+          const lot = item.lots as { lot_number: string; unit_number: string | null; lot_ownerships: Array<{ owners: { first_name: string; last_name: string } | null }> | null } | null
+          const owners = lot?.lot_ownerships?.map(o => o.owners).filter(Boolean) ?? []
+          return {
+            lotNumber: lot?.lot_number ?? '?',
+            unitNumber: lot?.unit_number ?? null,
+            ownerName: owners.length > 0 ? owners.map(o => `${o!.first_name} ${o!.last_name}`).join(', ') : '',
+            adminLevy: Number(item.admin_levy_amount),
+            capitalLevy: Number(item.capital_levy_amount),
+            totalLevy: Number(item.total_levy_amount),
+            amountPaid: Number(item.amount_paid),
+            balance: Number(item.balance),
+            status: item.status as string,
+            dueDate: item.due_date as string,
+          }
+        })
+
+        pdfElement = React.createElement(LevyRollReportPDF, {
+          data: {
+            schemeName: scheme.scheme_name,
+            schemeNumber: scheme.scheme_number,
+            schemeAddress,
+            periodName: period.period_name,
+            periodStart: period.period_start,
+            periodEnd: period.period_end,
+            items,
+          },
+        }) as React.ReactElement<DocumentProps>
+        fileName = `levy-roll-${period.period_name.replace(/\s+/g, '-').toLowerCase()}.pdf`
+        break
+      }
+
+      default:
+        return { error: `Unknown report type: ${reportType}` }
+    }
+  } catch (err) {
+    return { error: `Failed to generate report: ${err instanceof Error ? err.message : 'Unknown error'}` }
+  }
+
+  // Render PDF to buffer
+  const pdfBuffer = await renderToBuffer(pdfElement)
+
+  // Optionally save to Supabase Storage
+  if (params?.save) {
+    const timestamp = Date.now()
+    const storagePath = `${schemeId}/financial/${new Date().getFullYear()}/${timestamp}_${fileName}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('scheme-documents')
+      .upload(storagePath, pdfBuffer, {
+        contentType: 'application/pdf',
+        upsert: false,
+      })
+
+    if (uploadError) return { error: `PDF rendered but upload failed: ${uploadError.message}` }
+
+    // Create a document record
+    await supabase
+      .from('documents')
+      .insert({
+        scheme_id: schemeId,
+        document_name: fileName.replace('.pdf', '').replace(/-/g, ' '),
+        category: 'financial',
+        document_date: new Date().toISOString().split('T')[0],
+        file_path: storagePath,
+        file_size: pdfBuffer.length,
+        mime_type: 'application/pdf',
+        auto_generated: true,
+        linked_entity_type: 'financial_report',
+        uploaded_by: user.id,
+        created_by: user.id,
+      })
+
+    // Return signed URL
+    const { data: signedUrl, error: urlError } = await supabase.storage
+      .from('scheme-documents')
+      .createSignedUrl(storagePath, 60 * 60)
+
+    if (urlError) return { error: `PDF saved but URL generation failed: ${urlError.message}` }
+    return { data: { url: signedUrl.signedUrl, fileName, saved: true } }
+  }
+
+  // Return as base64 for direct download (no storage)
+  const base64 = Buffer.from(pdfBuffer).toString('base64')
+  return { data: { base64, fileName, saved: false } }
 }

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
-import { ArrowLeft, ArrowRight, Scale, Landmark, FileBarChart } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Scale, Landmark, FileBarChart, PieChart, ClipboardList } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -47,6 +47,18 @@ export default async function ReportsHubPage({
       description: 'Revenue and expenses by category for each fund. Shows net surplus or deficit for the period.',
       href: `/schemes/${id}/trust/reports/income-statement`,
       icon: FileBarChart,
+    },
+    {
+      title: 'Budget vs Actual',
+      description: 'Compare budgeted amounts against actual spending by category. Track variance and identify over-budget areas.',
+      href: `/schemes/${id}/trust/reports/budget-vs-actual`,
+      icon: PieChart,
+    },
+    {
+      title: 'Levy Roll',
+      description: 'View levy assessments per lot with payment status, collection rates, and outstanding balances.',
+      href: `/schemes/${id}/trust/reports/levy-roll`,
+      icon: ClipboardList,
     },
   ]
 

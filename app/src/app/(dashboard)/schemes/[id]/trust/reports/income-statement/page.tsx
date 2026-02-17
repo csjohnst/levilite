@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/table'
 import { Separator } from '@/components/ui/separator'
 import { getIncomeStatement } from '@/actions/reports'
+import { ExportPDFButton } from '@/components/reports/export-pdf-button'
 
 function formatCurrency(amount: number): string {
   return '$' + amount.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -163,12 +164,19 @@ export default async function IncomeStatementPage({
             {' '}&mdash; Income Statement
           </p>
         </div>
-        <Button asChild variant="outline">
-          <Link href={`/schemes/${id}/trust/reports`}>
-            <ArrowLeft className="mr-2 size-4" />
-            Back to Reports
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExportPDFButton
+            schemeId={id}
+            reportType="income-statement"
+            params={{ startDate, endDate }}
+          />
+          <Button asChild variant="outline">
+            <Link href={`/schemes/${id}/trust/reports`}>
+              <ArrowLeft className="mr-2 size-4" />
+              Back to Reports
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="text-sm text-muted-foreground">

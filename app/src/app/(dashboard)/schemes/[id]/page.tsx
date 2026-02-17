@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
-import { Pencil, Plus, Upload, Building2, Home, Users, UserCheck, Receipt, DollarSign, ArrowRight, Landmark, BookOpen, Scale, FileCheck } from 'lucide-react'
+import { Pencil, Plus, Upload, Building2, Home, Users, UserCheck, Receipt, DollarSign, ArrowRight, Landmark, BookOpen, Scale, FileCheck, FileText, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -185,6 +185,8 @@ export default async function SchemeDetailPage({
           <TabsTrigger value="committee">Committee ({committeeMembers?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="levies">Levies</TabsTrigger>
           <TabsTrigger value="trust">Trust</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="budgets">Budgets</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -496,6 +498,54 @@ export default async function SchemeDetailPage({
                 </Button>
               </CardContent>
             </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="documents" className="space-y-4">
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
+            <FileText className="size-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium">Document Library</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Upload and manage documents for this scheme including AGM minutes, insurance certificates, by-laws, and more.
+            </p>
+            <div className="flex gap-3 mt-4">
+              <Button asChild>
+                <Link href={`/schemes/${id}/documents`}>
+                  View Documents
+                  <ArrowRight className="ml-2 size-4" />
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href={`/schemes/${id}/documents/upload`}>
+                  <Upload className="mr-2 size-4" />
+                  Upload Document
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="budgets" className="space-y-4">
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
+            <Wallet className="size-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium">Budget Management</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Create and manage budgets by financial year, set line item amounts, and track spending against budget.
+            </p>
+            <div className="flex gap-3 mt-4">
+              <Button asChild>
+                <Link href={`/schemes/${id}/budgets`}>
+                  View Budgets
+                  <ArrowRight className="ml-2 size-4" />
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href={`/schemes/${id}/budgets/new`}>
+                  <Plus className="mr-2 size-4" />
+                  Create Budget
+                </Link>
+              </Button>
+            </div>
           </div>
         </TabsContent>
       </Tabs>
