@@ -75,13 +75,13 @@ export function LotsTab({ schemeId, lots }: LotsTabProps) {
     <div className="space-y-4">
       <div className="flex gap-2">
         <Button asChild>
-          <Link href={`/dashboard/schemes/${schemeId}/lots/new`}>
+          <Link href={`/schemes/${schemeId}/lots/new`}>
             <Plus className="mr-2 size-4" />
             Add Lot
           </Link>
         </Button>
         <Button asChild variant="outline">
-          <Link href={`/dashboard/schemes/${schemeId}/lots/import`}>
+          <Link href={`/schemes/${schemeId}/lots/import`}>
             <Upload className="mr-2 size-4" />
             Import CSV
           </Link>
@@ -133,7 +133,7 @@ export function LotsTab({ schemeId, lots }: LotsTabProps) {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem asChild>
-                            <Link href={`/dashboard/schemes/${schemeId}/lots/${lot.id}/edit`}>
+                            <Link href={`/schemes/${schemeId}/lots/${lot.id}/edit`}>
                               <Pencil className="mr-2 size-4" />
                               Edit
                             </Link>

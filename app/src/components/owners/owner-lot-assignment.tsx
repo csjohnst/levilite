@@ -146,7 +146,7 @@ export function OwnerLotAssignment({ schemeId, lots }: OwnerLotAssignmentProps) 
     }
 
     toast.success('Owner created successfully')
-    router.push(`/dashboard/schemes/${schemeId}`)
+    router.push(`/schemes/${schemeId}`)
   }
 
   return (

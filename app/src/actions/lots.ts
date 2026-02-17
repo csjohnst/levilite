@@ -81,7 +81,7 @@ export async function createLot(schemeId: string, data: LotFormData) {
     .single()
 
   if (error) return { error: error.message }
-  revalidatePath(`/dashboard/schemes/${schemeId}`)
+  revalidatePath(`/schemes/${schemeId}`)
   return { data: lot }
 }
 
@@ -106,7 +106,7 @@ export async function updateLot(lotId: string, data: LotFormData) {
     .single()
 
   if (error) return { error: error.message }
-  revalidatePath(`/dashboard/schemes/${lot.scheme_id}`)
+  revalidatePath(`/schemes/${lot.scheme_id}`)
   return { data: lot }
 }
 
@@ -128,7 +128,7 @@ export async function deleteLot(lotId: string) {
     .eq('id', lotId)
 
   if (error) return { error: error.message }
-  if (lot) revalidatePath(`/dashboard/schemes/${lot.scheme_id}`)
+  if (lot) revalidatePath(`/schemes/${lot.scheme_id}`)
   return { data: true }
 }
 
@@ -303,7 +303,7 @@ export async function importLotsFromCSV(schemeId: string, csvText: string) {
     }
   }
 
-  revalidatePath(`/dashboard/schemes/${schemeId}`)
+  revalidatePath(`/schemes/${schemeId}`)
   return {
     data: {
       lotsCreated: insertedLots?.length ?? 0,

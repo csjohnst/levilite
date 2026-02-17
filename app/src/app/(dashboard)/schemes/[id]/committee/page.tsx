@@ -7,5 +7,5 @@ export default async function CommitteePage({
 }) {
   const { id } = await params
   // Committee is managed as a tab on the scheme detail page
-  redirect(`/dashboard/schemes/${id}`)
+  redirect(`/schemes/${id}`)
 }

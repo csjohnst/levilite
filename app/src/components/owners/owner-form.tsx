@@ -122,7 +122,7 @@ export function OwnerForm({ schemeId, initialData, onSubmit, submitLabel = 'Save
     }
 
     toast.success('Owner saved successfully')
-    router.push(`/dashboard/schemes/${schemeId}`)
+    router.push(`/schemes/${schemeId}`)
   }
 
   return (

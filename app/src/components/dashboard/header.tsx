@@ -5,20 +5,20 @@ import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 
 const pageTitles: Record<string, string> = {
-  '/dashboard': 'Dashboard',
-  '/dashboard/schemes': 'Schemes',
-  '/dashboard/schemes/new': 'New Scheme',
-  '/dashboard/settings': 'Settings',
+  '/': 'Dashboard',
+  '/schemes': 'Schemes',
+  '/schemes/new': 'New Scheme',
+  '/settings': 'Settings',
 }
 
 function getPageTitle(pathname: string): string {
   if (pageTitles[pathname]) return pageTitles[pathname]
 
-  // Handle dynamic routes like /dashboard/schemes/[id]
-  if (pathname.match(/^\/dashboard\/schemes\/[^/]+$/)) {
+  // Handle dynamic routes like /schemes/[id]
+  if (pathname.match(/^\/schemes\/[^/]+$/)) {
     return 'Scheme Details'
   }
-  if (pathname.match(/^\/dashboard\/schemes\/[^/]+\/edit$/)) {
+  if (pathname.match(/^\/schemes\/[^/]+\/edit$/)) {
     return 'Edit Scheme'
   }
 

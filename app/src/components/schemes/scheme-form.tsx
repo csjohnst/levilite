@@ -118,7 +118,7 @@ export function SchemeForm({ initialData, onSubmit, submitLabel = 'Save Scheme' 
 
     toast.success('Scheme saved successfully')
     const scheme = result.data as { id: string }
-    router.push(`/dashboard/schemes/${scheme.id}`)
+    router.push(`/schemes/${scheme.id}`)
   }
 
   return (

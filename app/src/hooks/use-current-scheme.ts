@@ -5,6 +5,33 @@ import { useCallback, useEffect, useState } from 'react'
 
 const STORAGE_KEY = 'levylite-current-scheme'
 
+function getStorage(key: string): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    return window.localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function setStorage(key: string, value: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(key, value)
+  } catch {
+    // ignore
+  }
+}
+
+function removeStorage(key: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.removeItem(key)
+  } catch {
+    // ignore
+  }
+}
+
 export function useCurrentScheme() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -15,9 +42,9 @@ export function useCurrentScheme() {
     const urlScheme = searchParams.get('scheme')
     if (urlScheme) {
       setSchemeIdState(urlScheme)
-      localStorage.setItem(STORAGE_KEY, urlScheme)
+      setStorage(STORAGE_KEY, urlScheme)
     } else {
-      const stored = localStorage.getItem(STORAGE_KEY)
+      const stored = getStorage(STORAGE_KEY)
       if (stored) setSchemeIdState(stored)
     }
   }, [searchParams])
@@ -25,12 +52,12 @@ export function useCurrentScheme() {
   const setSchemeId = useCallback((id: string | null) => {
     setSchemeIdState(id)
     if (id) {
-      localStorage.setItem(STORAGE_KEY, id)
+      setStorage(STORAGE_KEY, id)
       const params = new URLSearchParams(searchParams.toString())
       params.set('scheme', id)
       router.replace(`${pathname}?${params.toString()}`)
     } else {
-      localStorage.removeItem(STORAGE_KEY)
+      removeStorage(STORAGE_KEY)
       const params = new URLSearchParams(searchParams.toString())
       params.delete('scheme')
       router.replace(`${pathname}?${params.toString()}`)

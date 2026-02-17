@@ -111,7 +111,7 @@ export function UserNav({ user }: { user: User }) {
                 <UserIcon className="mr-2 size-4" />
                 Profile
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push('/dashboard/settings')}>
+              <DropdownMenuItem onClick={() => router.push('/settings')}>
                 <Settings className="mr-2 size-4" />
                 Settings
               </DropdownMenuItem>

@@ -47,7 +47,7 @@ export function OwnersTab({ schemeId, owners }: OwnersTabProps) {
     <div className="space-y-4">
       <div className="flex gap-2">
         <Button asChild>
-          <Link href={`/dashboard/schemes/${schemeId}/owners/new`}>
+          <Link href={`/schemes/${schemeId}/owners/new`}>
             <Plus className="mr-2 size-4" />
             Add Owner
           </Link>
@@ -93,7 +93,7 @@ export function OwnersTab({ schemeId, owners }: OwnersTabProps) {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
-                          <Link href={`/dashboard/schemes/${schemeId}/owners/${owner.id as string}/edit`}>
+                          <Link href={`/schemes/${schemeId}/owners/${owner.id as string}/edit`}>
                             <Pencil className="mr-2 size-4" />
                             Edit
                           </Link>

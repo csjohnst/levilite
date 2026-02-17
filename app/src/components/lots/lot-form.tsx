@@ -116,7 +116,7 @@ export function LotForm({ schemeId, initialData, onSubmit, submitLabel = 'Save L
     }
 
     toast.success('Lot saved successfully')
-    router.push(`/dashboard/schemes/${schemeId}`)
+    router.push(`/schemes/${schemeId}`)
   }
 
   return (

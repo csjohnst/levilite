@@ -91,7 +91,7 @@ export async function createScheme(data: SchemeFormData) {
     .single()
 
   if (error) return { error: error.message }
-  revalidatePath('/dashboard/schemes')
+  revalidatePath('/schemes')
   return { data: scheme }
 }
 
@@ -116,8 +116,8 @@ export async function updateScheme(id: string, data: SchemeFormData) {
     .single()
 
   if (error) return { error: error.message }
-  revalidatePath('/dashboard/schemes')
-  revalidatePath(`/dashboard/schemes/${id}`)
+  revalidatePath('/schemes')
+  revalidatePath(`/schemes/${id}`)
   return { data: scheme }
 }
 
@@ -132,6 +132,6 @@ export async function deleteScheme(id: string) {
     .eq('id', id)
 
   if (error) return { error: error.message }
-  revalidatePath('/dashboard/schemes')
+  revalidatePath('/schemes')
   return { data: true }
 }

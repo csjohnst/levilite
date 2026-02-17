@@ -148,7 +148,7 @@ export async function createOwner(
         .select('scheme_id')
         .eq('id', a.lot_id)
         .single()
-      if (lot) revalidatePath(`/dashboard/schemes/${lot.scheme_id}`)
+      if (lot) revalidatePath(`/schemes/${lot.scheme_id}`)
     }
   }
 
@@ -189,7 +189,7 @@ export async function updateOwner(ownerId: string, data: OwnerFormData) {
     if (lot?.scheme_id) schemeIds.add(lot.scheme_id)
   }
   for (const sid of schemeIds) {
-    revalidatePath(`/dashboard/schemes/${sid}`)
+    revalidatePath(`/schemes/${sid}`)
   }
 
   return { data: owner }
@@ -219,7 +219,7 @@ export async function deleteOwner(ownerId: string) {
   if (error) return { error: error.message }
 
   for (const sid of schemeIds) {
-    revalidatePath(`/dashboard/schemes/${sid}`)
+    revalidatePath(`/schemes/${sid}`)
   }
 
   return { data: true }

@@ -48,60 +48,60 @@ interface AppSidebarProps {
 const navItems = [
   {
     title: 'Dashboard',
-    href: '/dashboard',
+    href: '/',
     icon: LayoutDashboard,
     exact: true,
   },
   {
     title: 'Schemes',
-    href: '/dashboard/schemes',
+    href: '/schemes',
     icon: Building2,
   },
   {
     title: 'Levies',
-    href: '/dashboard/levies',
+    href: '/levies',
     icon: Receipt,
     disabled: true,
     badge: 'Soon',
   },
   {
     title: 'Trust Accounting',
-    href: '/dashboard/trust',
+    href: '/trust',
     icon: Landmark,
     disabled: true,
     badge: 'Soon',
   },
   {
     title: 'Meetings',
-    href: '/dashboard/meetings',
+    href: '/meetings',
     icon: Calendar,
     disabled: true,
     badge: 'Soon',
   },
   {
     title: 'Maintenance',
-    href: '/dashboard/maintenance',
+    href: '/maintenance',
     icon: Wrench,
     disabled: true,
     badge: 'Soon',
   },
   {
     title: 'Documents',
-    href: '/dashboard/documents',
+    href: '/documents',
     icon: FileText,
     disabled: true,
     badge: 'Soon',
   },
   {
     title: 'Reports',
-    href: '/dashboard/reports',
+    href: '/reports',
     icon: BarChart3,
     disabled: true,
     badge: 'Soon',
   },
   {
     title: 'Settings',
-    href: '/dashboard/settings',
+    href: '/settings',
     icon: Settings,
   },
 ]
@@ -115,7 +115,7 @@ export function AppSidebar({ user, organisation, schemes }: AppSidebarProps) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link href="/dashboard">
+              <Link href="/">
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">
                   LL
                 </div>

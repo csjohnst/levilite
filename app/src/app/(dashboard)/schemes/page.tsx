@@ -48,7 +48,7 @@ export default async function SchemesPage() {
           </p>
         </div>
         <Button asChild>
-          <Link href="/dashboard/schemes/new">
+          <Link href="/schemes/new">
             <Plus className="mr-2 size-4" />
             Add Scheme
           </Link>
@@ -75,7 +75,7 @@ export default async function SchemesPage() {
                   <TableRow key={scheme.id}>
                     <TableCell>
                       <Link
-                        href={`/dashboard/schemes/${scheme.id}`}
+                        href={`/schemes/${scheme.id}`}
                         className="font-medium hover:underline"
                       >
                         {scheme.scheme_number}
@@ -83,7 +83,7 @@ export default async function SchemesPage() {
                     </TableCell>
                     <TableCell>
                       <Link
-                        href={`/dashboard/schemes/${scheme.id}`}
+                        href={`/schemes/${scheme.id}`}
                         className="hover:underline"
                       >
                         {scheme.scheme_name}
@@ -112,7 +112,7 @@ export default async function SchemesPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem asChild>
-                            <Link href={`/dashboard/schemes/${scheme.id}/edit`}>
+                            <Link href={`/schemes/${scheme.id}/edit`}>
                               <Pencil className="mr-2 size-4" />
                               Edit
                             </Link>
@@ -144,7 +144,7 @@ export default async function SchemesPage() {
             Get started by adding your first strata scheme.
           </p>
           <Button asChild className="mt-4">
-            <Link href="/dashboard/schemes/new">
+            <Link href="/schemes/new">
               <Plus className="mr-2 size-4" />
               Add Scheme
             </Link>

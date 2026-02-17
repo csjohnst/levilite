@@ -117,7 +117,7 @@ export default async function SchemeDetailPage({
           <p className="text-muted-foreground">{scheme.scheme_number}</p>
         </div>
         <Button asChild variant="outline">
-          <Link href={`/dashboard/schemes/${id}/edit`}>
+          <Link href={`/schemes/${id}/edit`}>
             <Pencil className="mr-2 size-4" />
             Edit Scheme
           </Link>

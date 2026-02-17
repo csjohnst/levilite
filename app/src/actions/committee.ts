@@ -51,8 +51,8 @@ export async function addCommitteeMember(
     .single()
 
   if (error) return { error: error.message }
-  revalidatePath(`/dashboard/schemes/${schemeId}`)
-  revalidatePath(`/dashboard/schemes/${schemeId}/committee`)
+  revalidatePath(`/schemes/${schemeId}`)
+  revalidatePath(`/schemes/${schemeId}/committee`)
   return { data: member }
 }
 
@@ -77,8 +77,8 @@ export async function updateCommitteeMember(
 
   if (error) return { error: error.message }
   if (member) {
-    revalidatePath(`/dashboard/schemes/${member.scheme_id}`)
-    revalidatePath(`/dashboard/schemes/${member.scheme_id}/committee`)
+    revalidatePath(`/schemes/${member.scheme_id}`)
+    revalidatePath(`/schemes/${member.scheme_id}/committee`)
   }
   return { data: member }
 }
@@ -97,8 +97,8 @@ export async function removeCommitteeMember(id: string) {
 
   if (error) return { error: error.message }
   if (member) {
-    revalidatePath(`/dashboard/schemes/${member.scheme_id}`)
-    revalidatePath(`/dashboard/schemes/${member.scheme_id}/committee`)
+    revalidatePath(`/schemes/${member.scheme_id}`)
+    revalidatePath(`/schemes/${member.scheme_id}/committee`)
   }
   return { data: true }
 }
