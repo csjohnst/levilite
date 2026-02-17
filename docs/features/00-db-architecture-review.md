@@ -426,14 +426,13 @@ CREATE TABLE subscription_plans (
 ```sql
 INSERT INTO subscription_plans (plan_code, plan_name, price_per_lot_monthly, min_lots, max_lots) VALUES
   ('free', 'Free', 0.00, 1, 10),
-  ('starter', 'Starter', 8.00, 11, 50),
-  ('professional', 'Professional', 6.00, 51, 200),
-  ('growth', 'Growth', 5.00, 201, 500);
+  ('starter', 'Starter', 2.50, 11, 100),
+  ('professional', 'Professional', 1.50, 101, 500),
+  ('growth', 'Growth', 1.00, 501, 2000),
+  ('enterprise', 'Enterprise', 0.75, 2001, NULL);
 ```
 
-**Issue:** PRD has conflicting pricing. Page 1 says "$6/lot/month" but pricing table shows "$8/lot for Starter". Which is correct?
-
-**Recommendation:** Use pricing table values (Starter=$8, Professional=$6, Growth=$5). Update PRD page 1.
+**Note:** Pricing updated to match website (Feb 2026): First 10 free, then $2.50/$1.50/$1.00/$0.75 graduated tiers.
 
 ---
 
@@ -501,24 +500,30 @@ CREATE TABLE invoices (
 );
 ```
 
-**Line Items Example:**
+**Line Items Example (100 lots, graduated pricing):**
 ```json
 {
   "items": [
     {
-      "description": "100 lots @ $6/lot/month",
-      "quantity": 100,
-      "unit_price": 6.00,
-      "amount": 600.00
+      "description": "First 10 lots (free)",
+      "quantity": 10,
+      "unit_price": 0.00,
+      "amount": 0.00
+    },
+    {
+      "description": "Lots 11-100 @ $2.50/lot/month",
+      "quantity": 90,
+      "unit_price": 2.50,
+      "amount": 225.00
     },
     {
       "description": "GST (10%)",
-      "amount": 60.00
+      "amount": 22.50
     }
   ],
-  "subtotal": 600.00,
-  "tax": 60.00,
-  "total": 660.00
+  "subtotal": 225.00,
+  "tax": 22.50,
+  "total": 247.50
 }
 ```
 
@@ -638,7 +643,7 @@ CREATE INDEX idx_payment_events_processed ON payment_events(processed) WHERE NOT
 
 **Mitigation Required:**
 1. **Email verification:** One email = one organisation
-2. **Manual review:** Flag new orgs with >5 lots on free tier (likely existing business trying to avoid payment)
+2. **Manual review:** Flag new orgs approaching free tier limit of 10 lots (likely existing business trying to avoid payment)
 3. **Usage tracking:** Monitor email patterns (same IP, similar org names)
 
 **Database Support:**

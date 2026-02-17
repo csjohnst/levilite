@@ -1551,7 +1551,7 @@ Per-customer storage (20 schemes):
 - Year 2: $30/month ÷ 100 customers = $0.30/customer/month
 - Year 3: $45/month ÷ 300 customers = $0.15/customer/month
 
-**Pricing headroom:** At $6/lot/month, a 100-lot customer pays $600/month. Storage cost is <$1/month per customer → **storage is 0.2% of revenue**. Very sustainable.
+**Pricing headroom:** At graduated pricing, a 100-lot customer pays $225/month. Storage cost is <$1/month per customer → **storage is <0.5% of revenue**. Very sustainable.
 
 ### 14.3 Bandwidth Costs
 

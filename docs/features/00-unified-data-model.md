@@ -1,7 +1,7 @@
 # LevyLite Unified Data Model
 
-**Document Version:** 1.0  
-**Last Updated:** 16 February 2026  
+**Document Version:** 1.1
+**Last Updated:** 17 February 2026  
 **Status:** Canonical Reference — Single Source of Truth  
 **Purpose:** Comprehensive database schema for all LevyLite features
 
@@ -1968,6 +1968,398 @@ CREATE POLICY managers_only ON email_log
 
 ---
 
+## 8.5 Subscription & Billing Tables
+
+### 8.5.1 subscription_plans
+
+Subscription tier definitions with graduated per-lot pricing.
+
+```sql
+CREATE TABLE subscription_plans (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  plan_code VARCHAR(20) NOT NULL UNIQUE,  -- 'free', 'starter', 'professional', 'growth'
+  plan_name VARCHAR(50) NOT NULL,
+  price_per_lot_monthly DECIMAL(10,2) NOT NULL,  -- Rate for lots in this tier range
+  min_lots INTEGER NOT NULL DEFAULT 0,  -- Tier range start
+  max_lots INTEGER,  -- Tier range end (NULL = unlimited)
+  max_schemes INTEGER,  -- NULL = unlimited
+  features JSONB NOT NULL DEFAULT '{}',  -- Feature flags
+  stripe_price_id_monthly VARCHAR(100),
+  stripe_price_id_annual VARCHAR(100),
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+COMMENT ON TABLE subscription_plans IS 'Subscription tier definitions with graduated per-lot pricing';
+COMMENT ON COLUMN subscription_plans.plan_code IS 'Unique tier identifier: free, starter, professional, growth, enterprise';
+COMMENT ON COLUMN subscription_plans.price_per_lot_monthly IS 'Per-lot rate for lots falling within this tier range';
+COMMENT ON COLUMN subscription_plans.min_lots IS 'Minimum lot count for this tier to apply (inclusive)';
+COMMENT ON COLUMN subscription_plans.max_lots IS 'Maximum lot count for this tier (NULL = unlimited)';
+COMMENT ON COLUMN subscription_plans.max_schemes IS 'Maximum schemes allowed (NULL = unlimited)';
+COMMENT ON COLUMN subscription_plans.features IS 'Feature flags JSONB (e.g., trust_accounting, bulk_levy_notices)';
+COMMENT ON COLUMN subscription_plans.stripe_price_id_monthly IS 'Stripe Price ID for monthly billing interval';
+COMMENT ON COLUMN subscription_plans.stripe_price_id_annual IS 'Stripe Price ID for annual billing interval';
+```
+
+**Indexes:**
+```sql
+CREATE INDEX idx_subscription_plans_plan_code ON subscription_plans(plan_code);
+CREATE INDEX idx_subscription_plans_active ON subscription_plans(is_active) WHERE is_active = TRUE;
+```
+
+**Seed Data:**
+```sql
+INSERT INTO subscription_plans (plan_code, plan_name, price_per_lot_monthly, min_lots, max_lots, max_schemes, features) VALUES
+  (
+    'free',
+    'Free',
+    0.00,
+    1,
+    10,
+    1,
+    '{
+      "scheme_lot_register": true,
+      "levy_management": true,
+      "levy_notices_manual": true,
+      "bulk_levy_notices": false,
+      "trust_accounting": false,
+      "financial_reporting": false,
+      "csv_import_export": false,
+      "document_storage": true,
+      "owner_portal": true,
+      "meeting_admin": true,
+      "maintenance_tracking": true,
+      "unlimited_users": false,
+      "max_users": 1,
+      "storage_gb": 1,
+      "email_support": false,
+      "trial_days": 14
+    }'::jsonb
+  ),
+  (
+    'starter',
+    'Starter',
+    2.50,
+    11,
+    100,
+    NULL,
+    '{
+      "scheme_lot_register": true,
+      "levy_management": true,
+      "levy_notices_manual": true,
+      "bulk_levy_notices": true,
+      "trust_accounting": true,
+      "financial_reporting": true,
+      "csv_import_export": true,
+      "document_storage": true,
+      "owner_portal": true,
+      "meeting_admin": true,
+      "maintenance_tracking": true,
+      "unlimited_users": true,
+      "max_users": null,
+      "storage_gb": 50,
+      "email_support": true,
+      "trial_days": 0
+    }'::jsonb
+  ),
+  (
+    'professional',
+    'Professional',
+    1.50,
+    101,
+    500,
+    NULL,
+    '{
+      "scheme_lot_register": true,
+      "levy_management": true,
+      "levy_notices_manual": true,
+      "bulk_levy_notices": true,
+      "trust_accounting": true,
+      "financial_reporting": true,
+      "csv_import_export": true,
+      "document_storage": true,
+      "owner_portal": true,
+      "meeting_admin": true,
+      "maintenance_tracking": true,
+      "unlimited_users": true,
+      "max_users": null,
+      "storage_gb": 50,
+      "email_support": true,
+      "trial_days": 0
+    }'::jsonb
+  ),
+  (
+    'growth',
+    'Growth',
+    1.00,
+    501,
+    2000,
+    NULL,
+    '{
+      "scheme_lot_register": true,
+      "levy_management": true,
+      "levy_notices_manual": true,
+      "bulk_levy_notices": true,
+      "trust_accounting": true,
+      "financial_reporting": true,
+      "csv_import_export": true,
+      "document_storage": true,
+      "owner_portal": true,
+      "meeting_admin": true,
+      "maintenance_tracking": true,
+      "unlimited_users": true,
+      "max_users": null,
+      "storage_gb": 50,
+      "email_support": true,
+      "trial_days": 0
+    }'::jsonb
+  ),
+  (
+    'enterprise',
+    'Enterprise',
+    0.75,
+    2001,
+    NULL,
+    NULL,
+    '{
+      "scheme_lot_register": true,
+      "levy_management": true,
+      "levy_notices_manual": true,
+      "bulk_levy_notices": true,
+      "trust_accounting": true,
+      "financial_reporting": true,
+      "csv_import_export": true,
+      "document_storage": true,
+      "owner_portal": true,
+      "meeting_admin": true,
+      "maintenance_tracking": true,
+      "unlimited_users": true,
+      "max_users": null,
+      "storage_gb": 50,
+      "email_support": true,
+      "trial_days": 0
+    }'::jsonb
+  );
+```
+
+---
+
+### 8.5.2 subscriptions
+
+One subscription per organisation. Tracks billing state and Stripe integration.
+
+```sql
+CREATE TABLE subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organisation_id UUID NOT NULL REFERENCES organisations(id) ON DELETE CASCADE,
+  plan_id UUID NOT NULL REFERENCES subscription_plans(id),
+  status TEXT NOT NULL DEFAULT 'trialing' CHECK (status IN ('trialing', 'active', 'past_due', 'canceled', 'paused')),
+  billing_interval TEXT NOT NULL DEFAULT 'monthly' CHECK (billing_interval IN ('monthly', 'annual')),
+  billed_lots_count INTEGER NOT NULL DEFAULT 0,  -- Snapshot at billing cycle start
+  monthly_amount DECIMAL(10,2) NOT NULL DEFAULT 0,  -- Current monthly charge
+  stripe_customer_id VARCHAR(100),
+  stripe_subscription_id VARCHAR(100),
+  current_period_start DATE NOT NULL,
+  current_period_end DATE NOT NULL,
+  trial_end_date DATE,
+  cancel_at_period_end BOOLEAN DEFAULT FALSE,
+  canceled_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(organisation_id)  -- One subscription per organisation
+);
+
+COMMENT ON TABLE subscriptions IS 'One subscription per organisation, tracks billing state and Stripe integration';
+COMMENT ON COLUMN subscriptions.status IS 'trialing (free trial), active (paying), past_due (payment failed), canceled, paused';
+COMMENT ON COLUMN subscriptions.billing_interval IS 'monthly or annual billing cycle';
+COMMENT ON COLUMN subscriptions.billed_lots_count IS 'Lot count snapshot at billing cycle start (prevents mid-cycle surprises)';
+COMMENT ON COLUMN subscriptions.monthly_amount IS 'Current calculated monthly charge based on graduated pricing';
+COMMENT ON COLUMN subscriptions.stripe_customer_id IS 'Stripe Customer ID (cus_xxx)';
+COMMENT ON COLUMN subscriptions.stripe_subscription_id IS 'Stripe Subscription ID (sub_xxx)';
+COMMENT ON COLUMN subscriptions.current_period_start IS 'Start of current billing period';
+COMMENT ON COLUMN subscriptions.current_period_end IS 'End of current billing period';
+COMMENT ON COLUMN subscriptions.trial_end_date IS 'When free trial expires (NULL if no trial)';
+COMMENT ON COLUMN subscriptions.cancel_at_period_end IS 'If true, subscription cancels at period end (not immediately)';
+COMMENT ON COLUMN subscriptions.canceled_at IS 'When cancellation was requested';
+```
+
+**Indexes:**
+```sql
+CREATE UNIQUE INDEX idx_subscriptions_organisation_id ON subscriptions(organisation_id);
+CREATE INDEX idx_subscriptions_plan_id ON subscriptions(plan_id);
+CREATE INDEX idx_subscriptions_status ON subscriptions(status);
+CREATE INDEX idx_subscriptions_stripe_customer_id ON subscriptions(stripe_customer_id);
+CREATE INDEX idx_subscriptions_stripe_subscription_id ON subscriptions(stripe_subscription_id);
+CREATE INDEX idx_subscriptions_period_end ON subscriptions(current_period_end);
+```
+
+**RLS Policy:**
+```sql
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_isolation ON subscriptions
+  FOR ALL USING (organisation_id = auth.user_organisation_id());
+```
+
+---
+
+### 8.5.3 usage_tracking
+
+Usage snapshots for billing, plan limit enforcement, and analytics.
+
+```sql
+CREATE TABLE usage_tracking (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organisation_id UUID NOT NULL REFERENCES organisations(id) ON DELETE CASCADE,
+  tracked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  total_lots INTEGER NOT NULL DEFAULT 0,
+  total_schemes INTEGER NOT NULL DEFAULT 0,
+  total_users INTEGER NOT NULL DEFAULT 0,
+  total_owners INTEGER NOT NULL DEFAULT 0,
+  storage_bytes BIGINT NOT NULL DEFAULT 0,
+  snapshot_type TEXT NOT NULL CHECK (snapshot_type IN ('daily', 'billing_cycle', 'manual')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+COMMENT ON TABLE usage_tracking IS 'Usage snapshots for billing, plan limit enforcement, and analytics';
+COMMENT ON COLUMN usage_tracking.tracked_at IS 'When the snapshot was taken';
+COMMENT ON COLUMN usage_tracking.total_lots IS 'Total active lots across all schemes';
+COMMENT ON COLUMN usage_tracking.total_schemes IS 'Total active schemes';
+COMMENT ON COLUMN usage_tracking.total_users IS 'Total organisation users (managers, admins, auditors)';
+COMMENT ON COLUMN usage_tracking.total_owners IS 'Total owners with active lot ownerships';
+COMMENT ON COLUMN usage_tracking.storage_bytes IS 'Total document storage used in bytes';
+COMMENT ON COLUMN usage_tracking.snapshot_type IS 'daily (automated), billing_cycle (at period start), manual (ad-hoc)';
+```
+
+**Indexes:**
+```sql
+CREATE INDEX idx_usage_tracking_organisation_id ON usage_tracking(organisation_id);
+CREATE INDEX idx_usage_tracking_tracked_at ON usage_tracking(tracked_at);
+CREATE INDEX idx_usage_tracking_snapshot_type ON usage_tracking(snapshot_type);
+CREATE INDEX idx_usage_tracking_org_type ON usage_tracking(organisation_id, snapshot_type, tracked_at DESC);
+```
+
+**RLS Policy:**
+```sql
+ALTER TABLE usage_tracking ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_isolation ON usage_tracking
+  FOR ALL USING (organisation_id = auth.user_organisation_id());
+```
+
+---
+
+### 8.5.4 platform_invoices
+
+LevyLite billing invoices (distinct from strata maintenance `invoices` table).
+
+```sql
+CREATE TABLE platform_invoices (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organisation_id UUID NOT NULL REFERENCES organisations(id) ON DELETE CASCADE,
+  subscription_id UUID NOT NULL REFERENCES subscriptions(id),
+  invoice_number VARCHAR(50) NOT NULL UNIQUE,  -- e.g., "LL-2026-0001"
+  billing_period_start DATE NOT NULL,
+  billing_period_end DATE NOT NULL,
+  lots_count INTEGER NOT NULL,  -- Lots billed in this period
+  subtotal DECIMAL(10,2) NOT NULL,  -- Before GST
+  gst_amount DECIMAL(10,2) NOT NULL DEFAULT 0,  -- 10% GST
+  total_amount DECIMAL(10,2) NOT NULL,  -- Subtotal + GST
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'paid', 'overdue', 'void')),
+  stripe_invoice_id VARCHAR(100),
+  paid_at TIMESTAMPTZ,
+  line_items JSONB,  -- Flexible line item breakdown
+  pdf_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+COMMENT ON TABLE platform_invoices IS 'LevyLite subscription billing invoices (distinct from strata maintenance invoices)';
+COMMENT ON COLUMN platform_invoices.invoice_number IS 'Unique invoice number (e.g., LL-2026-0001)';
+COMMENT ON COLUMN platform_invoices.billing_period_start IS 'Start of the billing period covered';
+COMMENT ON COLUMN platform_invoices.billing_period_end IS 'End of the billing period covered';
+COMMENT ON COLUMN platform_invoices.lots_count IS 'Number of lots billed in this invoice period';
+COMMENT ON COLUMN platform_invoices.subtotal IS 'Amount before GST';
+COMMENT ON COLUMN platform_invoices.gst_amount IS 'Australian GST at 10%';
+COMMENT ON COLUMN platform_invoices.total_amount IS 'Total amount including GST';
+COMMENT ON COLUMN platform_invoices.status IS 'draft (generating), sent (awaiting payment), paid, overdue, void';
+COMMENT ON COLUMN platform_invoices.stripe_invoice_id IS 'Stripe Invoice ID (in_xxx)';
+COMMENT ON COLUMN platform_invoices.line_items IS 'JSONB line item breakdown (graduated tier details, discounts)';
+COMMENT ON COLUMN platform_invoices.pdf_url IS 'URL to generated PDF invoice';
+```
+
+**Indexes:**
+```sql
+CREATE UNIQUE INDEX idx_platform_invoices_invoice_number ON platform_invoices(invoice_number);
+CREATE INDEX idx_platform_invoices_organisation_id ON platform_invoices(organisation_id);
+CREATE INDEX idx_platform_invoices_subscription_id ON platform_invoices(subscription_id);
+CREATE INDEX idx_platform_invoices_status ON platform_invoices(status);
+CREATE INDEX idx_platform_invoices_stripe_invoice_id ON platform_invoices(stripe_invoice_id);
+CREATE INDEX idx_platform_invoices_billing_period ON platform_invoices(billing_period_start, billing_period_end);
+```
+
+**RLS Policy:**
+```sql
+ALTER TABLE platform_invoices ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_isolation ON platform_invoices
+  FOR ALL USING (organisation_id = auth.user_organisation_id());
+```
+
+---
+
+### 8.5.5 payment_events
+
+Stripe webhook event log for debugging, reconciliation, and replay.
+
+```sql
+CREATE TABLE payment_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organisation_id UUID REFERENCES organisations(id),  -- NULL for account-level events
+  event_type TEXT NOT NULL,  -- 'invoice.paid', 'customer.subscription.updated', etc.
+  stripe_event_id VARCHAR(100) NOT NULL UNIQUE,  -- Stripe event ID for idempotency
+  payload JSONB NOT NULL,  -- Full Stripe event payload
+  processed BOOLEAN DEFAULT FALSE,
+  processed_at TIMESTAMPTZ,
+  error_message TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+COMMENT ON TABLE payment_events IS 'Stripe webhook event log for debugging, reconciliation, and replay';
+COMMENT ON COLUMN payment_events.organisation_id IS 'Linked organisation (NULL for account-level Stripe events)';
+COMMENT ON COLUMN payment_events.event_type IS 'Stripe event type (e.g., invoice.paid, customer.subscription.updated)';
+COMMENT ON COLUMN payment_events.stripe_event_id IS 'Stripe event ID (evt_xxx) for idempotent processing';
+COMMENT ON COLUMN payment_events.payload IS 'Full Stripe webhook event payload';
+COMMENT ON COLUMN payment_events.processed IS 'Whether this event has been successfully processed';
+COMMENT ON COLUMN payment_events.processed_at IS 'When the event was processed';
+COMMENT ON COLUMN payment_events.error_message IS 'Error message if processing failed';
+```
+
+**Indexes:**
+```sql
+CREATE UNIQUE INDEX idx_payment_events_stripe_event_id ON payment_events(stripe_event_id);
+CREATE INDEX idx_payment_events_organisation_id ON payment_events(organisation_id);
+CREATE INDEX idx_payment_events_event_type ON payment_events(event_type);
+CREATE INDEX idx_payment_events_processed ON payment_events(processed) WHERE NOT processed;
+CREATE INDEX idx_payment_events_created_at ON payment_events(created_at);
+```
+
+**RLS Policy:**
+```sql
+ALTER TABLE payment_events ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY managers_only ON payment_events
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM organisation_users
+      WHERE user_id = auth.uid()
+      AND role IN ('manager', 'admin')
+    )
+  );
+```
+
+---
+
 ## 9. RLS Policies
 
 ### 9.1 Helper Functions
@@ -2011,15 +2403,103 @@ RETURNS BOOLEAN AS $$
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 -- Get owner's lot IDs
-CREATE OR REPLACE FUNCTION auth.owner_lot_ids() 
+CREATE OR REPLACE FUNCTION auth.owner_lot_ids()
 RETURNS SETOF UUID AS $$
-  SELECT lot_id 
-  FROM lot_ownerships 
+  SELECT lot_id
+  FROM lot_ownerships
   WHERE owner_id IN (
     SELECT id FROM owners WHERE auth_user_id = auth.uid()
   )
   AND ownership_end_date IS NULL;
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+-- Check if organisation has active subscription
+CREATE OR REPLACE FUNCTION has_active_subscription()
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM subscriptions
+    WHERE organisation_id = auth.user_organisation_id()
+      AND status IN ('active', 'trialing')
+  );
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
+
+-- Check plan limits for an organisation
+CREATE OR REPLACE FUNCTION check_plan_limits(org_id UUID)
+RETURNS TABLE(within_limits BOOLEAN, current_lots INTEGER, max_lots INTEGER, message TEXT) AS $$
+DECLARE
+  v_current_lots INTEGER;
+  v_max_lots INTEGER;
+  v_plan_name VARCHAR(50);
+BEGIN
+  -- Count current active lots for the organisation
+  v_current_lots := (
+    SELECT COUNT(*)::INTEGER FROM lots l
+    JOIN schemes s ON l.scheme_id = s.id
+    WHERE s.organisation_id = org_id
+      AND s.deleted_at IS NULL
+  );
+
+  -- Get plan limits
+  SELECT sp.max_lots, sp.plan_name
+  INTO v_max_lots, v_plan_name
+  FROM subscriptions sub
+  JOIN subscription_plans sp ON sub.plan_id = sp.id
+  WHERE sub.organisation_id = org_id;
+
+  IF v_max_lots IS NOT NULL AND v_current_lots >= v_max_lots THEN
+    RETURN QUERY SELECT
+      FALSE,
+      v_current_lots,
+      v_max_lots,
+      format('Lot limit reached: %s/%s on %s plan. Upgrade to add more lots.', v_current_lots, v_max_lots, v_plan_name);
+  ELSE
+    RETURN QUERY SELECT
+      TRUE,
+      v_current_lots,
+      v_max_lots,
+      'Within plan limits'::TEXT;
+  END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Calculate graduated price for a given lot count
+CREATE OR REPLACE FUNCTION calculate_graduated_price(lot_count INTEGER)
+RETURNS DECIMAL(10,2) AS $$
+DECLARE
+  total_price DECIMAL(10,2) := 0;
+  remaining_lots INTEGER := lot_count;
+  tier RECORD;
+BEGIN
+  FOR tier IN
+    SELECT price_per_lot_monthly, min_lots, max_lots
+    FROM subscription_plans
+    WHERE is_active = TRUE
+    ORDER BY min_lots ASC
+  LOOP
+    IF remaining_lots <= 0 THEN
+      EXIT;
+    END IF;
+
+    -- Calculate lots in this tier
+    DECLARE
+      tier_lots INTEGER;
+      tier_range INTEGER;
+    BEGIN
+      IF tier.max_lots IS NULL THEN
+        tier_lots := remaining_lots;
+      ELSE
+        tier_range := tier.max_lots - tier.min_lots + 1;
+        tier_lots := LEAST(remaining_lots, tier_range);
+      END IF;
+
+      total_price := total_price + (tier_lots * tier.price_per_lot_monthly);
+      remaining_lots := remaining_lots - tier_lots;
+    END;
+  END LOOP;
+
+  RETURN total_price;
+END;
+$$ LANGUAGE plpgsql;
 ```
 
 ### 9.2 Standard Policy Pattern
@@ -2231,6 +2711,16 @@ CREATE TRIGGER auto_update_owners BEFORE UPDATE ON owners
 - `invitations` → `owners` or `auth.users` (when accepted)
 - `email_log` → polymorphic links (levy notices, meeting notices)
 
+### 12.7 Subscription Relationships
+
+**Subscription & Billing:**
+- `organisations` ← one-to-one → `subscriptions` (via `organisation_id` UNIQUE)
+- `subscriptions` → many-to-one → `subscription_plans` (via `plan_id`)
+- `organisations` ← one-to-many → `usage_tracking`
+- `organisations` ← one-to-many → `platform_invoices`
+- `subscriptions` ← one-to-many → `platform_invoices` (via `subscription_id`)
+- `payment_events` → `organisations` (optional, NULL for account-level events)
+
 ---
 
 ## 13. Migration Strategy
@@ -2295,7 +2785,14 @@ CREATE TRIGGER auto_update_owners BEFORE UPDATE ON owners
    - `notifications`
    - `email_log`
 
-10. **Triggers & Policies:**
+10. **Subscription & Billing:**
+    - `subscription_plans` (with seed data)
+    - `subscriptions`
+    - `usage_tracking`
+    - `platform_invoices`
+    - `payment_events`
+
+11. **Triggers & Policies:**
     - Create all triggers
     - Enable RLS on all tables
     - Create all policies
@@ -2345,8 +2842,9 @@ This document must be updated when:
 - **Maintenance:** 6 tables (maintenance_requests, maintenance_comments, tradespeople, quotes, invoices, maintenance_attachments)
 - **Document:** 3 tables (documents, document_versions, document_audit_log)
 - **System:** 4 tables (audit_log, invitations, notifications, email_log)
+- **Subscription & Billing:** 5 tables (subscription_plans, subscriptions, usage_tracking, platform_invoices, payment_events)
 
-**Total:** 39 tables
+**Total:** 44 tables
 
 ### Key Foreign Key Patterns
 
@@ -2361,4 +2859,4 @@ This document must be updated when:
 
 **END OF UNIFIED DATA MODEL**
 
-*Last updated: 16 February 2026*
+*Last updated: 17 February 2026*

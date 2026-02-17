@@ -36,15 +36,15 @@ For an Australia-only B2B SaaS targeting strata managers, **Stripe** is the clea
 
 ---
 
-## Cost Comparison (Typical Customer: 100 lots @ $6/lot + GST = $660/mo)
+## Cost Comparison (Typical Customer: 100 lots @ graduated pricing + GST = $247.50/mo inc GST)
 
 | Provider | Fee per month | Annual cost | Notes |
 |----------|-------------|------------|-------|
-| Stripe | ~$16.12 | ~$193 | 2.4% + $0.30 |
-| Paddle | ~$33.50 | ~$402 | 5% + $0.50 |
-| LemonSqueezy | ~$33.50 | ~$402 | 5% + $0.50 |
+| Stripe | ~$6.24 | ~$75 | 2.4% + $0.30 on $247.50 |
+| Paddle | ~$12.88 | ~$155 | 5% + $0.50 |
+| LemonSqueezy | ~$12.88 | ~$155 | 5% + $0.50 |
 
-**Savings with Stripe:** ~$209/year per customer. At 50 customers = **$10,450/year**.
+**Savings with Stripe:** ~$80/year per customer. At 50 customers = **$4,000/year**.
 
 ---
 
@@ -118,7 +118,7 @@ Stripe AU supports **BECS Direct Debit** — customers authorise direct bank deb
 
 ## Future Considerations
 
-- **Free tier:** 5 lots, 1 scheme. 14-day trial of full features. After trial, free tier loses trust accounting, bulk levy notices, financial reporting, CSV import/export.
+- **Free tier:** 10 lots, 1 scheme. 14-day trial of full features. After trial, free tier loses trust accounting, bulk levy notices, financial reporting, CSV import/export.
 - **If expanding internationally:** Re-evaluate MoR at that point. Could migrate to LemonSqueezy (Stripe-owned) relatively easily since underlying payment rails are Stripe.
 - **BPAY:** Not natively supported by Stripe. Could add as manual payment option with reconciliation. Low priority for MVP.
 - **Usage-based billing:** Stripe Meters API supports real-time usage events. Could bill per-lot dynamically instead of tier-based. Phase 2 consideration.

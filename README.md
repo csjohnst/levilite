@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LevyLite
 
-## Getting Started
+Cloud-based strata management platform for small operators in Australia.
 
-First, run the development server:
+## Repository Structure
+
+```
+levylite/
+├── landing/          # Marketing landing page (Netlify)
+│   ├── src/
+│   ├── public/
+│   └── package.json
+├── app/              # Strata management application (Vercel)
+│   ├── src/
+│   └── package.json
+└── docs/             # Shared documentation
+    ├── features/     # Feature specifications
+    ├── diagrams/     # Mermaid architecture diagrams
+    ├── PRD.md        # Product Requirements Document
+    └── ...
+```
+
+## Landing Page (`landing/`)
+
+Static marketing site deployed on **Netlify**.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
+cd landing
+bun install
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **URL:** levylite.com.au
+- **Stack:** Next.js 16 (static export), Tailwind CSS, shadcn/ui
+- **Deploy:** Netlify (base directory: `landing/`)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Application (`app/`)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Full strata management platform deployed on **Vercel**.
 
-## Learn More
+```bash
+cd app
+bun install
+bun dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+- **URL:** app.levylite.com.au
+- **Stack:** Next.js 15 (App Router), Supabase, Stripe, Tailwind CSS, shadcn/ui
+- **Deploy:** Vercel (root directory: `app/`)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Documentation (`docs/`)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Comprehensive planning documentation including:
 
-## Deploy on Vercel
+- **PRD** — Product requirements and go-to-market strategy
+- **Feature specs** — 11 detailed feature specifications
+- **Mermaid diagrams** — 28 architecture and workflow diagrams
+- **Data model** — 44-table PostgreSQL schema with RLS policies
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See [`docs/diagrams/README.md`](docs/diagrams/README.md) for diagram index.

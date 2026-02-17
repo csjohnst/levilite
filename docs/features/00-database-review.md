@@ -495,17 +495,14 @@ Currently seeded with GLOBAL accounts (system accounts marked `is_system = TRUE`
 
 ## 3. Proposed Subscription & Billing Schema
 
-**Context:** PRD defines 4 pricing tiers:
-- **Free:** 1-10 lots, $0/month
-- **Starter:** 11-50 lots, $8/lot/month (but PRD also says $49/mo total?)
-- **Professional:** 51-200 lots, $6/lot/month
-- **Growth:** 201-500 lots, $5/lot/month
+**Context:** Website defines 5 graduated pricing tiers (updated Feb 2026):
+- **Free:** First 10 lots, $0/month
+- **Starter:** Lots 11-100, $2.50/lot/month
+- **Professional:** Lots 101-500, $1.50/lot/month
+- **Growth:** Lots 501-2,000, $1.00/lot/month
+- **Enterprise:** Lots 2,001+, $0.75/lot/month
 
-**Clarification Needed:** PRD has conflicting pricing:
-- Page 1: "$6/lot/month"
-- Pricing table: "$8/lot for Starter, $6/lot for Professional"
-
-**Assuming:** Tier-based per-lot pricing as in the pricing table (Section 8).
+**Note:** Pricing is graduated (each tier applies only to lots within that range).
 
 ### 3.1 Schema Design
 
@@ -662,7 +659,7 @@ CREATE TABLE invoices (
   stripe_charge_id VARCHAR(100),
   
   -- Line items (JSON for flexibility)
-  line_items JSONB,  -- [{ "description": "100 lots @ $6/lot", "quantity": 100, "unit_price": 6.00, "amount": 600.00 }]
+  line_items JSONB,  -- [{ "description": "Lots 11-100 @ $2.50/lot", "quantity": 90, "unit_price": 2.50, "amount": 225.00 }]
   
   -- PDF storage
   pdf_url TEXT,  -- Supabase Storage URL to generated PDF invoice
@@ -824,7 +821,7 @@ BEGIN
       NEW.organisation_id,
       'plan_limit_exceeded',
       'Upgrade Required',
-      format('You now have %s lots, which exceeds the Free plan limit of 10. Please upgrade to Starter ($8/lot/month) to continue.', current_lot_count),
+      format('You now have %s lots, which exceeds the Free plan limit of 10. Please upgrade to a paid plan ($2.50/lot/month) to continue.', current_lot_count),
       NOW()
     );
   END IF;

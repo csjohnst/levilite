@@ -12,7 +12,7 @@
 
 The Australian strata management software market is broken. Enterprise platforms like StrataMax, MRI Strata Master, and Urbanise charge $5,000-$20,000+ per year and target agencies managing hundreds or thousands of lots. Intellistrata offers transparent pricing at $10-$55/lot/year but requires a 600-lot minimum. Meanwhile, 92% of Australia's 368,234 strata schemes have fewer than 20 lots, and hundreds of small operators managing 50-300 lots are stuck using spreadsheets because nothing affordable exists.
 
-**LevyLite** is a cloud-based strata management platform built specifically for small operators: sole practitioners, small agencies (<50 schemes), and real estate agents managing strata as a side business. At **$6/lot/month**, a typical customer managing 100 lots pays $7,200/year—40-60% less than existing solutions. The platform delivers the essentials—levy management, owner portals, AGM administration, trust accounting, and document storage—without the complexity and cost of enterprise software.
+**LevyLite** is a cloud-based strata management platform built specifically for small operators: sole practitioners, small agencies (<50 schemes), and real estate agents managing strata as a side business. With graduated pricing starting at **$2.50/lot/month** (first 10 lots free), a typical customer managing 100 lots pays $2,700/year—70-85% less than existing solutions. The platform delivers the essentials—levy management, owner portals, AGM administration, trust accounting, and document storage—without the complexity and cost of enterprise software.
 
 This PRD defines the MVP feature set, go-to-market strategy, and success metrics for launching in Western Australia. With 32,200 small schemes in WA alone and an estimated 50-100 small operators currently using spreadsheets, there's a clear path to $300K+ ARR within 18 months.
 
@@ -86,7 +86,7 @@ This PRD defines the MVP feature set, go-to-market strategy, and success metrics
   - Lost AGM minutes from 5 years ago (compliance risk)
   - Spends 5-10 hours/quarter on treasurer duties
 - **Buying criteria:**
-  - Free for small scheme (≤5 lots), or affordable for 10-lot scheme
+  - Free for small scheme (≤10 lots)
   - Easy enough for non-professional
   - Owners can pay levies online
   - Automatic record retention
@@ -400,18 +400,19 @@ Transparent, predictable, no sales calls required.
 
 ### Graduated Pricing (no cliffs, scales smoothly)
 
-| Lot Range | Rate | Example (cumulative) |
-|-----------|------|---------------------|
-| **First 5 lots** | Free | $0/mo |
-| **Lots 6–50** | $8/lot/mo | 30 lots = $200/mo |
-| **Lots 51–200** | $6/lot/mo | 100 lots = (45×$8)+(50×$6) = $660/mo |
-| **Lots 201–500** | $5/lot/mo | 300 lots = (45×$8)+(150×$6)+(100×$5) = $1,860/mo |
+| Lot Range | Rate (ex GST) | Example (cumulative) |
+|-----------|---------------|---------------------|
+| **First 10 lots** | Free | $0/mo |
+| **Lots 11–100** | $2.50/lot/mo | 50 lots = 40×$2.50 = $100/mo |
+| **Lots 101–500** | $1.50/lot/mo | 300 lots = (90×$2.50)+(200×$1.50) = $525/mo |
+| **Lots 501–2,000** | $1.00/lot/mo | 1,000 lots = (90×$2.50)+(400×$1.50)+(500×$1.00) = $1,325/mo |
+| **Lots 2,001+** | $0.75/lot/mo | — |
 
 Pricing is graduated — each tier applies only to lots within that range. No cliffs.
 
-**Paid (6+ lots) includes:** All features, unlimited users, unlimited document storage (fair use 50GB), unlimited schemes, email support (24-48h response).
+**Paid (11+ lots) includes:** All features, unlimited users, unlimited document storage (fair use 50GB), unlimited schemes, email support (24-48h response).
 
-**Free tier (≤5 lots, 1 scheme) includes:** Scheme & lot register, levy management (manual notices only), document storage, owner portal, meeting admin. **14-day trial of all features** on signup.
+**Free tier (≤10 lots, 1 scheme) includes:** Scheme & lot register, levy management (manual notices only), document storage, owner portal, meeting admin. **14-day trial of all features** on signup.
 
 **Free tier excludes (after trial):** Trust accounting, bulk levy notices, financial reporting, CSV import/export.
 
@@ -419,27 +420,27 @@ Pricing is graduated — each tier applies only to lots within that range. No cl
 
 ### Rationale
 
-- **$6/lot/month sweet spot:** 40-60% cheaper than Intellistrata ($10-$55/lot/year = $0.83-$4.58/lot/month) and 70-80% cheaper than enterprise platforms
-- **Free tier (1-5 lots, 1 scheme):** Land-and-expand strategy. Small self-managed schemes get free access with core features. 14-day trial of full features on signup. When they professionalise or grow, they're already on the platform. Low limit (5 lots) prevents abuse while still being genuinely useful for trial.
-- **Higher price for smallest tier (11-50 lots):** Subsidises free tier, reflects higher per-customer support cost
+- **$2.50/lot/month entry point:** Significantly cheaper than Intellistrata ($10-$55/lot/year = $0.83-$4.58/lot/month) and 80-90% cheaper than enterprise platforms
+- **Free tier (1-10 lots, 1 scheme):** Land-and-expand strategy. Small self-managed schemes get free access with core features. 14-day trial of full features on signup. When they professionalise or grow, they're already on the platform. Generous 10-lot limit is useful for small schemes.
+- **Aggressive volume discounts:** Rates decrease from $2.50 to $0.75 as lot count grows, encouraging customers to consolidate all schemes on the platform
 - **Volume discount incentive:** Encourages growth (customer adds schemes, price/lot drops)
 
 ### Revenue Projections
 
 **Conservative MVP Scenario (WA, 12 Months):**
 - 10 paying customers
-- Average 100 lots per customer at $6/lot/month
-- ARR: 10 × 100 × $6 × 12 = **$72,000**
+- Average 100 lots per customer
+- ARR: 10 × $225/mo × 12 = **$27,000**
 
 **Growth Scenario (WA, 18 Months):**
 - 30 paying customers
 - Average 120 lots per customer
-- ARR: 30 × 120 × $6 × 12 = **$259,200**
+- ARR: 30 × $255/mo × 12 = **$91,800**
 
 **National Expansion (24 Months):**
 - 100 paying customers (WA + NSW/VIC/QLD)
 - Average 150 lots per customer
-- ARR: 100 × 150 × $6 × 12 = **$1,080,000**
+- ARR: 100 × $300/mo × 12 = **$360,000**
 
 ### Payment Processing
 
@@ -459,7 +460,7 @@ Pricing is graduated — each tier applies only to lots within that range. No cl
 ### Month 1-2: Foundation & Validation
 
 1. **Build landing page** (Next.js, hosted on Vercel)
-   - Clear value proposition: "Strata management software for small operators—$6/lot/month, no minimums"
+   - Clear value proposition: "Strata management software for small operators—from $2.50/lot/month, first 10 lots free"
    - Pricing calculator (enter # of lots → see monthly cost)
    - Email capture for beta access
    - Publish to levylite.com.au (placeholder domain)
@@ -702,7 +703,7 @@ Pricing is graduated — each tier applies only to lots within that range. No cl
 
 ## Next Steps (For Discussion with Donna)
 
-1. **Validate pricing:** Is $6/lot/month compelling? Would you switch from spreadsheets at that price?
+1. **Validate pricing:** Is $2.50/lot/month (first 10 free) compelling? Would you switch from spreadsheets at that price?
 2. **Feature prioritisation:** Which MVP features are must-haves vs. nice-to-haves from your perspective?
 3. **Beta participation:** Would you be willing to test the platform with 2-3 schemes for 6 months (free) and provide weekly feedback?
 4. **Referral potential:** If this works for you, how many other WA operators could you introduce?

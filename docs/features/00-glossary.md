@@ -1,7 +1,7 @@
 # LevyLite Glossary
 
-**Document Version:** 1.0  
-**Last Updated:** 16 February 2026  
+**Document Version:** 1.1
+**Last Updated:** 17 February 2026
 **Status:** Canonical Reference — Use These Terms Consistently  
 **Purpose:** Standard terminology for all LevyLite documentation, code, and UI
 
@@ -821,6 +821,209 @@ This glossary defines the **canonical terms** used throughout the LevyLite platf
 
 ---
 
+## Subscription & Billing Terms
+
+### Subscription
+
+**Definition:** An organisation's active service agreement with LevyLite. Each organisation has exactly one subscription, which determines their plan, billing interval, and access level. Created automatically during signup.
+
+**Avoid:**
+- No incorrect term -- "subscription" is standard SaaS terminology
+- Do not confuse with strata levies (owner payments to the scheme)
+
+**Example:**
+> "Sarah's Strata Management has an active subscription with 150 billed lots on annual billing."
+
+**Database:** `subscriptions` table
+**Code:** `subscription`, `subscription_id`
+**API:** `subscription`, `subscriptionId`
+
+---
+
+### Subscription Plan
+
+**Definition:** A plan configuration defining lot limits, scheme limits, and feature flags. LevyLite has two plans: **free** (10 lots, 1 scheme) and **paid** (unlimited lots and schemes, graduated per-lot pricing).
+
+**Avoid:**
+- No incorrect term -- "subscription plan" is the canonical term
+- Do not say "tier" to refer to the plan itself (tiers refer to graduated pricing bands)
+
+**Example:**
+> "The free plan allows up to 10 lots and 1 scheme. The paid plan uses graduated per-lot pricing."
+
+**Database:** `subscription_plans` table
+**Code:** `subscription_plan`, `plan_id`, `plan_code` ('free', 'paid')
+**API:** `subscriptionPlan`, `planId`, `planCode`
+
+---
+
+### Billing Interval
+
+**Definition:** The frequency at which a subscription is billed. LevyLite supports **monthly** and **annual** billing. Annual billing includes a discount equivalent to 2 months free.
+
+**Avoid:**
+- Do not say "billing period" when referring to the interval (period refers to a specific date range)
+- Do not say "billing cycle" interchangeably (cycle refers to one specific period, interval is the recurring frequency)
+
+**Example:**
+> "The organisation switched from monthly to annual billing to save 2 months per year."
+
+**Database:** `subscriptions.billing_interval` ('monthly', 'annual')
+**Code:** `billing_interval`
+**API:** `billingInterval`
+
+---
+
+### Trial Period
+
+**Definition:** A 14-day period after signup during which all paid features are available without a credit card. After the trial, the organisation must add payment details to continue with a paid plan or remain on the free tier.
+
+**Avoid:**
+- Do not say "free trial" in technical contexts (use "trial period" to distinguish from the permanent free tier)
+
+**Example:**
+> "During the 14-day trial period, Sarah can test trust accounting, bulk levy notices, and financial reporting."
+
+**Database:** `subscriptions.trial_start_date`, `subscriptions.trial_end_date`
+**Code:** `trial_start_date`, `trial_end_date`
+**API:** `trialStartDate`, `trialEndDate`
+
+---
+
+### Grace Period
+
+**Definition:** A period after a failed payment during which the subscription remains active while payment recovery is attempted. Prevents immediate access loss due to temporary payment issues.
+
+**Avoid:**
+- Do not confuse with trial period (grace period applies to failed payments, not new signups)
+
+**Example:**
+> "After the payment failed, the organisation entered a 7-day grace period before write access was suspended."
+
+**Database:** Derived from `subscriptions.status = 'past_due'` and `subscriptions.current_period_end`
+**Code:** `grace_period`
+**API:** `gracePeriod`
+
+---
+
+### Dunning
+
+**Definition:** The automated process of recovering failed payments through retry attempts, email notifications, and escalating actions. Handled by Stripe's Smart Retries with supplementary in-app banners.
+
+**Avoid:**
+- Do not say "payment chasing" (dunning is the standard SaaS term)
+
+**Example:**
+> "Stripe's dunning process retried the failed payment 3 times over 7 days before marking the subscription as past due."
+
+**Database:** Tracked via `payment_events` table (event_type: 'invoice.payment_failed')
+**Code:** N/A (managed by Stripe)
+**API:** N/A (managed by Stripe)
+
+---
+
+### BECS Direct Debit
+
+**Definition:** Bulk Electronic Clearing System -- an Australian bank-to-bank payment method for recurring business payments. Supported as an alternative to credit card for subscription billing.
+
+**Avoid:**
+- Do not say "bank transfer" (BECS is a specific payment method, not a manual transfer)
+- Do not say "direct debit" without "BECS" in AU context (to distinguish from other direct debit systems)
+
+**Example:**
+> "The organisation set up BECS Direct Debit to pay subscription invoices directly from their business bank account."
+
+**Database:** Payment method stored in Stripe, referenced via `subscriptions.stripe_customer_id`
+**Code:** N/A (managed by Stripe)
+**API:** N/A (managed by Stripe)
+
+---
+
+### Platform Invoice
+
+**Definition:** An invoice generated by LevyLite (via Stripe) for the organisation's subscription payment. Distinct from maintenance invoices (which are bills from tradespeople to the scheme).
+
+**Avoid:**
+- Do not confuse with `invoices` table (maintenance invoices from tradespeople)
+- Do not say "subscription invoice" in code (use "platform invoice" to avoid ambiguity)
+
+**Example:**
+> "The February 2026 platform invoice for $225 (ex GST) covers 100 lots on the paid plan."
+
+**Database:** `platform_invoices` table
+**Code:** `platform_invoice`, `platform_invoice_id`
+**API:** `platformInvoice`, `platformInvoiceId`
+
+---
+
+### Payment Event
+
+**Definition:** A record of a Stripe webhook event related to subscription billing (e.g., payment succeeded, payment failed, subscription updated). Stored for audit trail and debugging.
+
+**Avoid:**
+- Do not confuse with strata levy payments (which are recorded in `transactions`)
+- Do not say "webhook event" in user-facing contexts (use "payment event")
+
+**Example:**
+> "The payment event log shows the invoice was paid successfully via BECS Direct Debit at 14:32 UTC."
+
+**Database:** `payment_events` table
+**Code:** `payment_event`, `event_type`, `stripe_event_id`
+**API:** `paymentEvent`, `eventType`, `stripeEventId`
+
+---
+
+### Free Tier
+
+**Definition:** The permanent free plan for small schemes: up to 10 lots and 1 scheme, with core features (scheme register, levy management, document storage). No credit card required. No time limit.
+
+**Avoid:**
+- Do not confuse with trial period (free tier is permanent, trial is 14 days with all features)
+- Do not say "free plan" interchangeably with "trial" (they are distinct concepts)
+
+**Example:**
+> "A self-managed scheme with 8 lots can use LevyLite on the free tier indefinitely."
+
+**Database:** `subscription_plans.plan_code = 'free'`, `subscriptions.status = 'free'`
+**Code:** `plan_code: 'free'`
+**API:** `planCode: "free"`
+
+---
+
+### Graduated Pricing
+
+**Definition:** A pricing model where the per-lot rate decreases as lot count increases, with each tier applying only to lots within that range. There are no price cliffs -- adding one lot never causes a disproportionate price jump. LevyLite uses 5 tiers: free (first 10), $2.50 (11-100), $1.50 (101-500), $1.00 (501-2,000), $0.75 (2,001+), all ex GST.
+
+**Avoid:**
+- Do not say "tiered pricing" (implies distinct plan tiers with feature differences)
+- Do not say "volume pricing" (implies all lots are priced at the highest-volume rate)
+
+**Example:**
+> "With graduated pricing, 100 lots costs $225/month: first 10 free, then 90 lots at $2.50 each."
+
+**Database:** Pricing tiers configured in Stripe; lot count in `subscriptions.billed_lots_count`
+**Code:** `graduated_pricing`
+**API:** `graduatedPricing`
+
+---
+
+### Stripe Customer Portal
+
+**Definition:** A Stripe-hosted self-service interface where managers can update payment methods, view invoice history, switch billing intervals, and cancel subscriptions. Accessed via a redirect from LevyLite's billing settings page.
+
+**Avoid:**
+- Do not confuse with "owner portal" (the LevyLite interface for lot owners)
+- Do not say "billing portal" without "Stripe" qualifier
+
+**Example:**
+> "Sarah clicked 'Manage Billing' and was redirected to the Stripe Customer Portal to update her credit card details."
+
+**Database:** Stripe session URL generated on demand; customer ID in `subscriptions.stripe_customer_id`
+**Code:** N/A (Stripe-hosted)
+**API:** N/A (Stripe-hosted)
+
+---
+
 ## Anti-Patterns (Common Mistakes)
 
 ### ❌ Don't Mix Terms
@@ -997,10 +1200,22 @@ interface LevyItem {
 | Bill for work | invoice | `invoices` | `invoice` | `invoice` |
 | Stored file | document | `documents` | `document` | `document` |
 | Owner web interface | portal | — | `portal` | `portal` |
+| Service agreement | subscription | `subscriptions` | `subscription` | `subscription` |
+| Plan configuration | subscription plan | `subscription_plans` | `subscription_plan` | `subscriptionPlan` |
+| Billing frequency | billing interval | `billing_interval` | `billing_interval` | `billingInterval` |
+| Signup evaluation | trial period | `trial_start_date` | `trial_start_date` | `trialStartDate` |
+| Failed payment buffer | grace period | — | `grace_period` | `gracePeriod` |
+| Payment recovery | dunning | `payment_events` | — | — |
+| AU bank payment | BECS Direct Debit | — | — | — |
+| Subscription bill | platform invoice | `platform_invoices` | `platform_invoice` | `platformInvoice` |
+| Stripe webhook record | payment event | `payment_events` | `payment_event` | `paymentEvent` |
+| Permanent free plan | free tier | `plan_code = 'free'` | `plan_code: 'free'` | `planCode: "free"` |
+| Per-lot pricing model | graduated pricing | — | `graduated_pricing` | `graduatedPricing` |
+| Self-service billing | Stripe Customer Portal | — | — | — |
 
 ---
 
 **END OF GLOSSARY**
 
-*Last updated: 16 February 2026*  
+*Last updated: 17 February 2026*  
 *Questions or suggestions? Contact Chris Johnstone (chris@johnstone.id.au)*
