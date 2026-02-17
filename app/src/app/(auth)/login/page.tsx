@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -21,14 +22,16 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [magicLinkSent, setMagicLinkSent] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [magicLinkLoading, setMagicLinkLoading] = useState(false)
+  const [passwordLoading, setPasswordLoading] = useState(false)
 
+  const router = useRouter()
   const supabase = createClient()
 
   async function handleMagicLink(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    setLoading(true)
+    setMagicLinkLoading(true)
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
@@ -42,13 +45,13 @@ export default function LoginPage() {
     } else {
       setMagicLinkSent(true)
     }
-    setLoading(false)
+    setMagicLinkLoading(false)
   }
 
   async function handlePasswordLogin(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    setLoading(true)
+    setPasswordLoading(true)
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -57,9 +60,11 @@ export default function LoginPage() {
 
     if (error) {
       setError(error.message)
+      setPasswordLoading(false)
+      return
     }
-    // On success, middleware will redirect to /dashboard
-    setLoading(false)
+
+    router.push('/')
   }
 
   if (magicLinkSent) {
@@ -113,8 +118,8 @@ export default function LoginPage() {
               required
             />
           </div>
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? 'Sending...' : 'Send magic link'}
+          <Button type="submit" className="w-full" disabled={magicLinkLoading}>
+            {magicLinkLoading ? 'Sending...' : 'Send magic link'}
           </Button>
         </form>
 
@@ -157,9 +162,9 @@ export default function LoginPage() {
             type="submit"
             variant="outline"
             className="w-full"
-            disabled={loading}
+            disabled={passwordLoading}
           >
-            {loading ? 'Signing in...' : 'Sign in with password'}
+            {passwordLoading ? 'Signing in...' : 'Sign in with password'}
           </Button>
         </form>
       </CardContent>

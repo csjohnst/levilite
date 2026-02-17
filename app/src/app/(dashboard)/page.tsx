@@ -1,4 +1,6 @@
 import { Building2, Home, Users, ClipboardList } from 'lucide-react'
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import {
   Card,
   CardContent,
@@ -7,34 +9,49 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 
-const stats = [
-  {
-    title: 'Total Schemes',
-    value: '--',
-    description: 'Active strata schemes',
-    icon: Building2,
-  },
-  {
-    title: 'Total Lots',
-    value: '--',
-    description: 'Across all schemes',
-    icon: Home,
-  },
-  {
-    title: 'Active Owners',
-    value: '--',
-    description: 'Registered lot owners',
-    icon: Users,
-  },
-  {
-    title: 'Pending Items',
-    value: '--',
-    description: 'Requiring attention',
-    icon: ClipboardList,
-  },
-]
+export default async function DashboardPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
-export default function DashboardPage() {
+  // Fetch counts in parallel
+  const [schemesResult, lotsResult, ownersResult] = await Promise.all([
+    supabase.from('schemes').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+    supabase.from('lots').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+    supabase.from('lot_ownerships').select('owner_id', { count: 'exact', head: true }).is('ownership_end_date', null),
+  ])
+
+  const totalSchemes = schemesResult.count ?? 0
+  const totalLots = lotsResult.count ?? 0
+  const totalOwners = ownersResult.count ?? 0
+
+  const stats = [
+    {
+      title: 'Total Schemes',
+      value: totalSchemes,
+      description: 'Active strata schemes',
+      icon: Building2,
+    },
+    {
+      title: 'Total Lots',
+      value: totalLots,
+      description: 'Across all schemes',
+      icon: Home,
+    },
+    {
+      title: 'Active Owners',
+      value: totalOwners,
+      description: 'Registered lot owners',
+      icon: Users,
+    },
+    {
+      title: 'Pending Items',
+      value: 0,
+      description: 'Requiring attention',
+      icon: ClipboardList,
+    },
+  ]
+
   return (
     <div className="space-y-6">
       <div>
