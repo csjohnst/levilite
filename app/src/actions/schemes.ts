@@ -19,6 +19,9 @@ const schemeSchema = z.object({
   financial_year_end_day: z.number().min(1).max(31),
   levy_frequency: z.enum(['monthly', 'quarterly', 'annual', 'custom']),
   levy_due_day: z.number().min(1).max(28),
+  trust_bsb: z.string().regex(/^\d{3}-?\d{3}$/, 'BSB must be 6 digits (e.g. 066-123)').optional().nullable(),
+  trust_account_number: z.string().min(1).max(20).optional().nullable(),
+  trust_account_name: z.string().min(1).max(255).optional().nullable(),
   notes: z.string().optional().nullable(),
 })
 

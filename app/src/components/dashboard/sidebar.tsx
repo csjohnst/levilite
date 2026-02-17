@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Building2,
   Receipt,
+  DollarSign,
   Landmark,
   Calendar,
   Wrench,
@@ -61,8 +62,11 @@ const navItems = [
     title: 'Levies',
     href: '/levies',
     icon: Receipt,
-    disabled: true,
-    badge: 'Soon',
+  },
+  {
+    title: 'Payments',
+    href: '/payments',
+    icon: DollarSign,
   },
   {
     title: 'Trust Accounting',

@@ -39,6 +39,9 @@ const schemeSchema = z.object({
   financial_year_end_day: z.number().min(1).max(31),
   levy_frequency: z.enum(['monthly', 'quarterly', 'annual', 'custom']),
   levy_due_day: z.number().min(1).max(28),
+  trust_bsb: z.string().regex(/^\d{3}-?\d{3}$/, 'BSB must be 6 digits (e.g. 066-123)').optional().nullable(),
+  trust_account_number: z.string().min(1).max(20).optional().nullable(),
+  trust_account_name: z.string().min(1).max(255).optional().nullable(),
   notes: z.string().optional().nullable(),
 })
 
@@ -94,6 +97,9 @@ export function SchemeForm({ initialData, onSubmit, submitLabel = 'Save Scheme' 
       financial_year_end_day: Number(formData.get('financial_year_end_day')),
       levy_frequency: formData.get('levy_frequency') as string,
       levy_due_day: Number(formData.get('levy_due_day')),
+      trust_bsb: (formData.get('trust_bsb') as string) || null,
+      trust_account_number: (formData.get('trust_account_number') as string) || null,
+      trust_account_name: (formData.get('trust_account_name') as string) || null,
       notes: (formData.get('notes') as string) || null,
     }
 
@@ -348,6 +354,50 @@ export function SchemeForm({ initialData, onSubmit, submitLabel = 'Save Scheme' 
               />
               {errors.levy_due_day && (
                 <p className="text-sm text-destructive">{errors.levy_due_day}</p>
+              )}
+            </div>
+          </div>
+          <div className="space-y-2 pt-4 border-t">
+            <Label className="text-base font-semibold">Trust Account Details</Label>
+            <p className="text-sm text-muted-foreground">
+              Bank account details shown on levy notices for owner payments
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="trust_bsb">BSB</Label>
+                <Input
+                  id="trust_bsb"
+                  name="trust_bsb"
+                  placeholder="066-123"
+                  defaultValue={initialData?.trust_bsb ?? ''}
+                />
+                {errors.trust_bsb && (
+                  <p className="text-sm text-destructive">{errors.trust_bsb}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="trust_account_number">Account Number</Label>
+                <Input
+                  id="trust_account_number"
+                  name="trust_account_number"
+                  placeholder="12345678"
+                  defaultValue={initialData?.trust_account_number ?? ''}
+                />
+                {errors.trust_account_number && (
+                  <p className="text-sm text-destructive">{errors.trust_account_number}</p>
+                )}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="trust_account_name">Account Name</Label>
+              <Input
+                id="trust_account_name"
+                name="trust_account_name"
+                placeholder="ABC Strata Co Trust Account"
+                defaultValue={initialData?.trust_account_name ?? ''}
+              />
+              {errors.trust_account_name && (
+                <p className="text-sm text-destructive">{errors.trust_account_name}</p>
               )}
             </div>
           </div>
