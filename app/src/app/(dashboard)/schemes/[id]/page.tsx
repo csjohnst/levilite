@@ -27,10 +27,13 @@ import { CommitteeTab } from '@/components/schemes/committee-tab'
 
 export default async function SchemeDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ tab?: string }>
 }) {
   const { id } = await params
+  const { tab } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -44,7 +47,7 @@ export default async function SchemeDetailPage({
   if (error || !scheme) notFound()
 
   // Fetch lots with owners
-  const { data: lots } = await supabase
+  const { data: lots, error: lotsError } = await supabase
     .from('lots')
     .select('*, lot_ownerships(*, owners(id, first_name, last_name, email))')
     .eq('scheme_id', id)
@@ -124,7 +127,7 @@ export default async function SchemeDetailPage({
         </Button>
       </div>
 
-      <Tabs defaultValue="overview">
+      <Tabs defaultValue={tab || "overview"}>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="lots">Lots ({totalLots})</TabsTrigger>

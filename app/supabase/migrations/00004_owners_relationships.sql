@@ -209,9 +209,10 @@ ALTER TABLE public.lot_ownerships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.committee_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tenants ENABLE ROW LEVEL SECURITY;
 
--- Owners: managers see owners linked to their org's schemes; owners see own record
-CREATE POLICY "tenant_isolation" ON public.owners
-  FOR ALL USING (
+-- Owners: split per-operation so INSERT works before lot_ownerships exist
+-- created_by = auth.uid() allows .insert().select() and editing before lot assignment
+CREATE POLICY "owners_select" ON public.owners
+  FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM public.lot_ownerships
       JOIN public.lots ON lots.id = lot_ownerships.lot_id
@@ -219,10 +220,40 @@ CREATE POLICY "tenant_isolation" ON public.owners
       WHERE lot_ownerships.owner_id = owners.id
       AND schemes.organisation_id = public.user_organisation_id()
     ) OR
-    portal_user_id = auth.uid()
+    portal_user_id = auth.uid() OR
+    created_by = auth.uid()
   );
 
--- Lot ownerships: staff via org chain; owners via portal_user_id
+CREATE POLICY "owners_insert" ON public.owners
+  FOR INSERT WITH CHECK (
+    public.user_organisation_id() IS NOT NULL
+  );
+
+CREATE POLICY "owners_update" ON public.owners
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1 FROM public.lot_ownerships
+      JOIN public.lots ON lots.id = lot_ownerships.lot_id
+      JOIN public.schemes ON schemes.id = lots.scheme_id
+      WHERE lot_ownerships.owner_id = owners.id
+      AND schemes.organisation_id = public.user_organisation_id()
+    ) OR
+    portal_user_id = auth.uid() OR
+    created_by = auth.uid()
+  );
+
+CREATE POLICY "owners_delete" ON public.owners
+  FOR DELETE USING (
+    EXISTS (
+      SELECT 1 FROM public.lot_ownerships
+      JOIN public.lots ON lots.id = lot_ownerships.lot_id
+      JOIN public.schemes ON schemes.id = lots.scheme_id
+      WHERE lot_ownerships.owner_id = owners.id
+      AND schemes.organisation_id = public.user_organisation_id()
+    )
+  );
+
+-- Lot ownerships: staff via org chain (no owners reference to avoid RLS recursion)
 CREATE POLICY "tenant_isolation" ON public.lot_ownerships
   FOR ALL USING (
     EXISTS (
@@ -230,11 +261,6 @@ CREATE POLICY "tenant_isolation" ON public.lot_ownerships
       JOIN public.schemes ON schemes.id = lots.scheme_id
       WHERE lots.id = lot_ownerships.lot_id
       AND schemes.organisation_id = public.user_organisation_id()
-    ) OR
-    EXISTS (
-      SELECT 1 FROM public.owners
-      WHERE owners.id = lot_ownerships.owner_id
-      AND owners.portal_user_id = auth.uid()
     )
   );
 

@@ -93,7 +93,7 @@ export function OwnerLotAssignment({ schemeId, lots }: OwnerLotAssignmentProps) 
     setErrors({})
 
     const formData = new FormData(e.currentTarget)
-    const orNull = (val: string | null) => val || null
+    const orNull = (val: string | null) => (!val || val === 'none') ? null : val
 
     const data: Record<string, unknown> = {
       title: orNull(formData.get('title') as string),
@@ -146,7 +146,7 @@ export function OwnerLotAssignment({ schemeId, lots }: OwnerLotAssignmentProps) 
     }
 
     toast.success('Owner created successfully')
-    router.push(`/schemes/${schemeId}`)
+    router.push(`/schemes/${schemeId}?tab=owners`)
   }
 
   return (
@@ -159,12 +159,12 @@ export function OwnerLotAssignment({ schemeId, lots }: OwnerLotAssignmentProps) 
           <div className="grid gap-4 sm:grid-cols-4">
             <div className="space-y-2">
               <Label htmlFor="title">Title</Label>
-              <Select name="title" defaultValue="">
+              <Select name="title" defaultValue="none">
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   {TITLES.map(t => (
                     <SelectItem key={t} value={t}>{t}</SelectItem>
                   ))}
@@ -252,12 +252,12 @@ export function OwnerLotAssignment({ schemeId, lots }: OwnerLotAssignmentProps) 
               </div>
               <div className="space-y-2">
                 <Label htmlFor="postal_state">State</Label>
-                <Select name="postal_state" defaultValue="">
+                <Select name="postal_state" defaultValue="none">
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {STATES.map(s => (
                       <SelectItem key={s} value={s}>{s}</SelectItem>
                     ))}
