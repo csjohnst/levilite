@@ -22,15 +22,14 @@ export function SignupForm({ buttonText = "Get early access", className = "", da
     setStatus("loading");
 
     try {
-      // Subscribe via Kit (ConvertKit) API using the form endpoint
-      const response = await fetch("https://api.convertkit.com/v3/tags/15947810/subscribe", {
+      // Subscribe via Kit API v4 form endpoint
+      const response = await fetch("https://api.kit.com/v4/forms/9097515/subscribers", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          api_key: "kit_373287bfc9ba036f5460fdf3c5be6d8d",
-          email: email,
-          tags: [15947810],
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          "X-Kit-Api-Key": "kit_373287bfc9ba036f5460fdf3c5be6d8d",
+        },
+        body: JSON.stringify({ email_address: email }),
       });
 
       if (response.ok) {
