@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://levylite.com.au/sitemap.xml
+Host: https://levylite.com.au
