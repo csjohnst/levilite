@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
+import { TrialBanner } from '@/components/trial-banner'
 
 export default async function DashboardLayout({
   children,
@@ -45,6 +46,9 @@ export default async function DashboardLayout({
       />
       <SidebarInset>
         <DashboardHeader />
+        <div className="px-4 pt-4 md:px-6 md:pt-6">
+          <TrialBanner />
+        </div>
         <main className="flex-1 p-4 md:p-6">{children}</main>
       </SidebarInset>
     </SidebarProvider>
