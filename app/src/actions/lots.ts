@@ -8,15 +8,15 @@ const lotSchema = z.object({
   lot_number: z.string().min(1, 'Lot number is required'),
   unit_number: z.string().optional().nullable(),
   street_address: z.string().optional().nullable(),
-  lot_type: z.enum(['residential', 'commercial', 'parking', 'storage', 'other']),
-  unit_entitlement: z.number().int().positive('Unit entitlement must be positive'),
+  lot_type: z.enum(['residential', 'commercial', 'parking', 'storage', 'common-property', 'other']),
+  unit_entitlement: z.number().int().min(0, 'Unit entitlement must be 0 or greater'),
   voting_entitlement: z.number().int().positive().optional().nullable(),
   floor_area_sqm: z.number().positive().optional().nullable(),
   balcony_area_sqm: z.number().positive().optional().nullable(),
   bedrooms: z.number().int().min(0).optional().nullable(),
   bathrooms: z.number().min(0).optional().nullable(),
   car_bays: z.number().int().min(0).optional().nullable(),
-  occupancy_status: z.enum(['owner-occupied', 'tenanted', 'vacant', 'unknown']),
+  occupancy_status: z.enum(['owner-occupied', 'tenanted', 'vacant', 'common-property', 'unknown']),
   notes: z.string().optional().nullable(),
 })
 
@@ -199,7 +199,7 @@ export async function importLotsFromCSV(schemeId: string, csvText: string) {
       continue
     }
     if (!unitEntitlement || isNaN(Number(unitEntitlement)) || Number(unitEntitlement) <= 0) {
-      errors.push({ row: i + 2, message: 'unit_entitlement must be a positive number' })
+      errors.push({ row: i + 2, message: 'unit_entitlement must be a non-negative number (0 is valid for Common Property)' })
       continue
     }
 

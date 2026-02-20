@@ -14,6 +14,7 @@ import {
   FileText,
   BarChart3,
   Settings,
+  Users,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import {
@@ -57,6 +58,11 @@ const navItems = [
     title: 'Schemes',
     href: '/schemes',
     icon: Building2,
+  },
+  {
+    title: 'Owners',
+    href: '/owners',
+    icon: Users,
   },
   {
     title: 'Levies',

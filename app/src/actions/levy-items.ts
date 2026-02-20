@@ -61,25 +61,32 @@ export async function calculateLeviesForPeriod(periodId: string) {
   }
 
   // 3. Get all active lots for the scheme with unit_entitlement
-  const { data: lots, error: lotsError } = await supabase
+  const { data: allLots, error: lotsError } = await supabase
     .from('lots')
-    .select('id, lot_number, unit_entitlement')
+    .select('id, lot_number, unit_entitlement, lot_type')
     .eq('scheme_id', schedule.scheme_id)
     .eq('status', 'active')
     .order('lot_number')
 
   if (lotsError) return { error: lotsError.message }
-  if (!lots || lots.length === 0) {
+  if (!allLots || allLots.length === 0) {
     return { error: 'No active lots found for this scheme. Add lots before calculating levies.' }
   }
 
-  // 4. Calculate total entitlement for the scheme
+  // Exclude Common Property lots — they don't pay levies
+  const lots = allLots.filter(lot => lot.lot_type !== 'common-property')
+
+  if (lots.length === 0) {
+    return { error: 'All active lots are Common Property and are excluded from levy calculations. Add regular lots before generating levies.' }
+  }
+
+  // 4. Calculate total entitlement for the scheme (Common Property excluded)
   const totalEntitlement = lots.reduce((sum, lot) => sum + (lot.unit_entitlement ?? 0), 0)
   if (totalEntitlement <= 0) {
     return { error: 'Total unit entitlement for the scheme is zero. Set unit entitlements on lots first.' }
   }
 
-  // 5. Calculate levy for each lot
+  // 5. Calculate levy for each lot (Common Property lots are already excluded)
   const levyItems = lots.map(lot => {
     const entitlementRatio = lot.unit_entitlement / totalEntitlement
     const adminLevy = Math.round(schedule.admin_fund_total * entitlementRatio / schedule.periods_per_year * 100) / 100

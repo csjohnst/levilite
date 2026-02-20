@@ -47,6 +47,7 @@ const LOT_TYPE_LABELS: Record<string, string> = {
   commercial: 'Commercial',
   parking: 'Parking',
   storage: 'Storage',
+  'common-property': 'Common Property',
   other: 'Other',
 }
 
@@ -54,6 +55,7 @@ const OCCUPANCY_LABELS: Record<string, string> = {
   'owner-occupied': 'Owner Occupied',
   tenanted: 'Tenanted',
   vacant: 'Vacant',
+  'common-property': 'Common Property',
   unknown: 'Unknown',
 }
 

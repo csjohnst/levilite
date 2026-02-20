@@ -93,8 +93,8 @@ export function CsvImportForm({ schemeId, onSuccess }: CsvImportFormProps) {
       })
 
       if (!values.lot_number) errors.push('lot_number is required')
-      if (!values.unit_entitlement || isNaN(Number(values.unit_entitlement))) {
-        errors.push('unit_entitlement must be a number')
+      if (values.unit_entitlement === '' || values.unit_entitlement === undefined || isNaN(Number(values.unit_entitlement)) || Number(values.unit_entitlement) < 0) {
+        errors.push('unit_entitlement must be a non-negative number (0 is valid for Common Property lots)')
       }
 
       return { values, errors }

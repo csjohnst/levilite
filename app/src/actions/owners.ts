@@ -253,3 +253,92 @@ export async function assignOwnerToLot(
   if (error) return { error: error.message }
   return { data: ownership }
 }
+
+/**
+ * Get ALL owners in the organisation — including those without lot assignments.
+ * Used for the global owner directory page.
+ *
+ * Returns each owner with their lot assignments (may be empty for orphaned owners).
+ */
+export async function getGlobalOwners() {
+  const result = await getAuth()
+  if ('error' in result && !('supabase' in result)) return { error: result.error }
+  const { supabase, user } = result as Exclude<typeof result, { error: string }>
+
+  // Get user's organisation
+  const { data: profile } = await supabase
+    .from('organisation_members')
+    .select('organisation_id')
+    .eq('user_id', user.id)
+    .single()
+
+  if (!profile?.organisation_id) {
+    return { error: 'No organisation found for user' }
+  }
+
+  // Get all owners for this org — including unassigned (created_by user or via org)
+  // We join lot_ownerships LEFT JOIN to catch owners with no lots
+  const { data: ownerships, error } = await supabase
+    .from('lot_ownerships')
+    .select(`
+      *,
+      owners(*),
+      lots(id, lot_number, unit_number, scheme_id, schemes(id, name))
+    `)
+    .is('ownership_end_date', null)
+
+  if (error) return { error: error.message }
+
+  // Also get owners created by this user who may have no lot assignments
+  const { data: allOwners, error: allOwnersError } = await supabase
+    .from('owners')
+    .select('*')
+    .eq('created_by', user.id)
+    .order('last_name')
+
+  if (allOwnersError) return { error: allOwnersError.message }
+
+  // Build a map of ownerId → { owner, lots: [...] }
+  const ownerMap = new Map<string, {
+    owner: Record<string, unknown>
+    lots: Array<{ id: string; lot_number: string; unit_number: string | null; scheme_id: string; scheme_name: string }>
+  }>()
+
+  // First add all owners (even without lots)
+  for (const owner of allOwners || []) {
+    ownerMap.set(owner.id, { owner, lots: [] })
+  }
+
+  // Then fill in lot assignments
+  for (const ownership of ownerships || []) {
+    const owner = ownership.owners as Record<string, unknown>
+    if (!owner) continue
+    const ownerId = owner.id as string
+
+    if (!ownerMap.has(ownerId)) {
+      ownerMap.set(ownerId, { owner, lots: [] })
+    }
+
+    if (ownership.lots) {
+      const lot = ownership.lots as {
+        id: string; lot_number: string; unit_number: string | null;
+        scheme_id: string; schemes: { id: string; name: string } | null
+      }
+      ownerMap.get(ownerId)!.lots.push({
+        id: lot.id,
+        lot_number: lot.lot_number,
+        unit_number: lot.unit_number,
+        scheme_id: lot.scheme_id,
+        scheme_name: lot.schemes?.name ?? 'Unknown Scheme',
+      })
+    }
+  }
+
+  return {
+    data: Array.from(ownerMap.values()).map(({ owner, lots }) => ({
+      owner,
+      lots,
+      isOrphaned: lots.length === 0,
+    }))
+  }
+}

@@ -28,15 +28,15 @@ const lotSchema = z.object({
   lot_number: z.string().min(1, 'Lot number is required'),
   unit_number: z.string().optional().nullable(),
   street_address: z.string().optional().nullable(),
-  lot_type: z.enum(['residential', 'commercial', 'parking', 'storage', 'other']),
-  unit_entitlement: z.number().int().positive('Unit entitlement must be positive'),
+  lot_type: z.enum(['residential', 'commercial', 'parking', 'storage', 'common-property', 'other']),
+  unit_entitlement: z.number().int().min(0, 'Unit entitlement must be 0 or greater'),
   voting_entitlement: z.number().int().positive().optional().nullable(),
   floor_area_sqm: z.number().positive().optional().nullable(),
   balcony_area_sqm: z.number().positive().optional().nullable(),
   bedrooms: z.number().int().min(0).optional().nullable(),
   bathrooms: z.number().min(0).optional().nullable(),
   car_bays: z.number().int().min(0).optional().nullable(),
-  occupancy_status: z.enum(['owner-occupied', 'tenanted', 'vacant', 'unknown']),
+  occupancy_status: z.enum(['owner-occupied', 'tenanted', 'vacant', 'common-property', 'unknown']),
   notes: z.string().optional().nullable(),
 })
 
@@ -52,6 +52,7 @@ const LOT_TYPES = [
   { value: 'commercial', label: 'Commercial' },
   { value: 'parking', label: 'Parking' },
   { value: 'storage', label: 'Storage' },
+  { value: 'common-property', label: 'Common Property' },
   { value: 'other', label: 'Other' },
 ] as const
 
@@ -59,6 +60,7 @@ const OCCUPANCY_STATUSES = [
   { value: 'owner-occupied', label: 'Owner Occupied' },
   { value: 'tenanted', label: 'Tenanted' },
   { value: 'vacant', label: 'Vacant' },
+  { value: 'common-property', label: 'Common Property' },
   { value: 'unknown', label: 'Unknown' },
 ] as const
 
