@@ -25,6 +25,8 @@ import { LotsTab } from '@/components/schemes/lots-tab'
 import { OwnersTab } from '@/components/schemes/owners-tab'
 import { CommitteeTab } from '@/components/schemes/committee-tab'
 import { getFundBalanceSummary } from '@/actions/reports'
+import { checkOpeningBalancesStatus } from '@/actions/opening-balances'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export default async function SchemeDetailPage({
   params,
@@ -85,6 +87,9 @@ export default async function SchemeDetailPage({
   const totalPaid = levyItems.reduce((sum, i) => sum + (i.amount_paid ?? 0), 0)
   const collectionRate = totalLevied > 0 ? Math.round((totalPaid / totalLevied) * 100) : 0
   const overdueCount = levyItems.filter(i => i.status === 'overdue').length
+
+  // Check opening balances status
+  const openingBalancesStatus = await checkOpeningBalancesStatus(id)
 
   // Trust accounting data
   const [fundResult, unreconciledResult, lastReconResult] = await Promise.all([
@@ -313,6 +318,21 @@ export default async function SchemeDetailPage({
         </TabsContent>
 
         <TabsContent value="levies" className="space-y-4">
+          {!openingBalancesStatus.data?.has_opening_balances && activeSchedule && (
+            <Alert>
+              <AlertDescription className="flex items-center justify-between">
+                <span>
+                  <strong>Mid-year onboarding:</strong> Set opening balances to record payments already made by owners before onboarding.
+                </span>
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/schemes/${id}/opening-balances`}>
+                    Set Opening Balances
+                  </Link>
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {activeSchedule ? (
             <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-3">

@@ -8,7 +8,7 @@ const paymentSchema = z.object({
   lot_id: z.string().uuid('Invalid lot'),
   amount: z.number().positive('Payment amount must be greater than zero'),
   payment_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be a valid date (YYYY-MM-DD)'),
-  payment_method: z.enum(['bank_transfer', 'cheque', 'cash', 'direct_debit', 'bpay']),
+  payment_method: z.enum(['bank_transfer', 'cheque', 'cash', 'direct_debit', 'bpay', 'opening_balance']),
   reference: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 })
